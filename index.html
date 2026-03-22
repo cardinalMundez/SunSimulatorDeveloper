@@ -1,0 +1,2574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SunSim Dev — Solar Assessment Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+:root{
+  --sun:#F59E0B;--sun-d:#D97706;--sun-l:rgba(245,158,11,0.13);
+  --teal:#0D9488;--teal-d:#0F766E;--teal-l:rgba(13,148,136,0.13);
+  --purple:#8B5CF6;--purple-l:rgba(139,92,246,0.13);
+  --green:#22C55E;--green-l:rgba(34,197,94,0.13);
+  --red:#EF4444;--blue:#3B82F6;
+  --bg:#0B1120;--card:#141E2E;--card2:#1A2740;--card3:#1E2E47;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.15);
+  --text:#F1F5F9;--muted:#64748B;--muted2:#94A3B8;
+  --r:10px;--r-sm:6px;--shadow:0 4px 20px rgba(0,0,0,0.5);--t:all 0.18s ease;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:2px}
+#app{display:flex;flex-direction:column;height:100vh}
+header{background:var(--card);border-bottom:1px solid var(--border);padding:0 14px;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:300}
+.logo{display:flex;align-items:center;gap:8px}
+.logo-mark{width:30px;height:30px;border-radius:7px;background:linear-gradient(135deg,var(--sun),var(--teal));display:flex;align-items:center;justify-content:center;font-size:16px}
+.logo-text{font-size:15px;font-weight:800}.logo-text span{color:var(--sun)}
+.logo-badge{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:var(--purple-l);color:var(--purple);border:1px solid rgba(139,92,246,0.3);padding:2px 8px;border-radius:50px;margin-left:3px}
+.hdr-mid{display:flex;align-items:center;gap:5px}
+.wf-step{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:50px;font-size:11px;font-weight:600;border:1px solid var(--border);color:var(--muted);transition:var(--t)}
+.wf-step.active{background:var(--sun);color:#000;border-color:var(--sun)}
+.wf-step.done{background:var(--green-l);color:var(--green);border-color:rgba(34,197,94,0.3)}
+.wf-sep{color:var(--muted);font-size:11px}
+.hdr-right{display:flex;align-items:center;gap:7px}
+.db-pill{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted2);padding:4px 10px;background:var(--card2);border-radius:50px;border:1px solid var(--border)}
+.db-dot{width:5px;height:5px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.db-dot.ok{background:var(--green);box-shadow:0 0 5px rgba(34,197,94,0.5)}
+.db-dot.spin{background:var(--sun);animation:pulse 1s infinite}
+.db-dot.err{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+main{flex:1;display:flex;overflow:hidden}
+#client-panel{width:272px;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
+.cp-head{padding:11px 12px 8px;border-bottom:1px solid var(--border);flex-shrink:0}
+.cp-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin-bottom:6px}
+.searchbox{display:flex;align-items:center;gap:6px;background:var(--card2);border:1px solid var(--border);border-radius:var(--r-sm);padding:6px 9px}
+.searchbox input{flex:1;background:transparent;border:none;outline:none;font-size:11px;color:var(--text);font-family:inherit}
+.searchbox input::placeholder{color:var(--muted)}
+.cp-meta{display:flex;justify-content:space-between;align-items:center;padding:5px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.cp-count{font-size:10px;color:var(--muted)}
+.btn-sync{display:flex;align-items:center;gap:3px;font-size:10px;font-weight:600;padding:3px 8px;background:var(--teal-l);color:var(--teal);border:1px solid rgba(13,148,136,0.25);border-radius:50px;cursor:pointer;transition:var(--t)}
+.btn-sync:hover{background:var(--teal);color:#fff}
+.clist{flex:1;overflow-y:auto;padding:5px}
+.ccard{padding:9px 10px;border-radius:var(--r-sm);cursor:pointer;transition:var(--t);border:1px solid transparent;margin-bottom:3px}
+.ccard:hover{background:var(--card2);border-color:var(--border)}
+.ccard.active{background:var(--sun-l);border-color:rgba(245,158,11,0.35)}
+.ccard.active .cc-name{color:var(--sun)}
+.cc-name{font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px;display:flex;align-items:center;gap:5px}
+.cc-meta{font-size:10px;color:var(--muted2);display:flex;gap:6px;flex-wrap:wrap}
+.cc-coords{font-size:9px;color:var(--muted);font-family:monospace;margin-top:3px}
+.cc-tag{font-size:9px;font-weight:600;padding:1px 6px;border-radius:50px;margin-top:3px;display:inline-block}
+.tag-70{background:rgba(13,148,136,0.15);color:var(--teal)}.tag-100{background:rgba(34,197,94,0.15);color:var(--green)}
+.tag-50{background:rgba(245,158,11,0.15);color:var(--sun)}.tag-30{background:rgba(239,68,68,0.15);color:var(--red)}
+.saved-dot{width:5px;height:5px;border-radius:50%;background:var(--sun);flex-shrink:0}
+.lst-state{padding:28px 12px;text-align:center;color:var(--muted)}
+.lst-state .ico{font-size:2rem;margin-bottom:8px;opacity:.5}
+.lst-state p{font-size:11px;line-height:1.6}
+#workspace{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+#cbar{background:var(--card);border-bottom:1px solid var(--border);padding:7px 14px;display:flex;align-items:center;gap:10px;min-height:46px;flex-shrink:0;flex-wrap:wrap}
+.cbar-idle{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}
+#cbar-loaded{display:none;align-items:center;gap:10px;width:100%;flex-wrap:wrap}
+.cbar-name{font-size:13px;font-weight:800}
+.cbar-addr{font-size:10px;color:var(--muted2)}
+.chips{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+.chip{font-size:9px;font-weight:600;padding:2px 7px;border-radius:50px;background:var(--card2);border:1px solid var(--border);color:var(--muted2);white-space:nowrap}
+.chip.sun{background:var(--sun-l);border-color:rgba(245,158,11,0.3);color:var(--sun)}
+.chip.teal{background:var(--teal-l);border-color:rgba(13,148,136,0.3);color:var(--teal)}
+.wpanel{position:absolute;inset:0;display:none;flex-direction:column}
+.wpanel.active{display:flex}
+#panel-map{flex-direction:row}
+#map-sidebar{width:220px;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.ms-section{padding:11px 12px;border-bottom:1px solid var(--border)}
+.ms-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px}
+.ms-hint{font-size:9px;color:var(--muted);line-height:1.5;margin-bottom:8px}
+.draw-btn{display:flex;align-items:center;gap:7px;width:100%;padding:8px 10px;border-radius:var(--r-sm);font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--card2);color:var(--muted2);transition:var(--t);font-family:inherit;margin-bottom:5px;text-align:left}
+.draw-btn:hover{border-color:var(--border2);color:var(--text)}
+.draw-btn.active-draw{border-color:var(--sun);background:var(--sun-l);color:var(--sun)}
+.draw-btn.tree-btn.active-draw{border-color:var(--green);background:var(--green-l);color:var(--green)}
+.draw-btn.bld-btn.active-draw{border-color:var(--purple);background:var(--purple-l);color:var(--purple)}
+.draw-btn-icon{font-size:14px;flex-shrink:0}
+.layer-count{font-size:9px;opacity:.6;margin-left:auto}
+.layer-list{display:flex;flex-direction:column;gap:3px;max-height:130px;overflow-y:auto;margin-top:6px}
+.layer-item{display:flex;align-items:center;gap:5px;font-size:10px;background:var(--card2);padding:4px 8px;border-radius:5px;border:1px solid var(--border)}
+.layer-item .li-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted2)}
+.layer-item .li-h{font-size:9px;color:var(--muted)}
+.li-del{cursor:pointer;color:var(--red);opacity:.5;font-size:11px;flex-shrink:0}.li-del:hover{opacity:1}
+.height-row{display:flex;align-items:center;gap:7px;margin-bottom:7px}
+.height-row label{font-size:10px;color:var(--muted2);white-space:nowrap}
+.height-row input[type=range]{flex:1;height:3px;accent-color:var(--sun)}
+.height-row span{font-size:10px;font-weight:700;color:var(--sun);min-width:28px}
+#map-wrap{flex:1;display:flex;flex-direction:column;position:relative}
+#leaflet-map{flex:1}
+.map-status-bar{background:var(--card);border-top:1px solid var(--border);padding:5px 12px;font-size:10px;color:var(--muted2);display:flex;align-items:center;gap:7px;min-height:30px;flex-shrink:0}
+.sdot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.sdot.ok{background:var(--green)}.sdot.warn{background:var(--sun)}.sdot.info{background:var(--blue);animation:pulse 1.2s infinite}
+.draw-hint-bar{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(11,17,32,0.92);border:1px solid var(--border2);border-radius:50px;padding:5px 16px;font-size:11px;color:#fff;pointer-events:none;z-index:500;display:none;white-space:nowrap}
+.map-run-row{background:var(--card);border-top:1px solid var(--border);padding:8px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.roof-badge-sm{display:flex;align-items:center;gap:5px;padding:4px 9px;background:var(--sun-l);border:1px solid rgba(245,158,11,0.3);border-radius:5px;font-size:10px;white-space:nowrap}
+.roof-badge-sm .ra{font-weight:700;color:var(--sun);font-size:11px}
+#panel-sim{flex-direction:row}
+#sim-sidebar{width:224px;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0}
+#sim-main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.stabs{display:flex;border-bottom:1px solid var(--border);background:var(--card);flex-shrink:0}
+.stab{flex:1;padding:10px;text-align:center;font-size:11px;font-weight:600;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:var(--t)}
+.stab.active{color:var(--sun);border-bottom-color:var(--sun)}
+.sview{flex:1;display:none;overflow:hidden;position:relative}
+.sview.active{display:block}
+canvas.sc{display:block;width:100%;height:100%}
+#compass-cv{position:absolute;top:10px;right:10px;width:52px;height:52px;z-index:10}
+.ss{padding:10px 11px;border-bottom:1px solid var(--border)}
+.ss:last-child{border-bottom:none}
+.st{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:7px}
+.cr{display:flex;flex-direction:column;gap:3px;margin-bottom:7px}
+.cr:last-child{margin-bottom:0}
+.clr{display:flex;justify-content:space-between;align-items:baseline}
+.cl{font-size:10px;color:var(--muted2)}.cv{font-size:10px;font-weight:700;color:var(--sun)}
+input[type=range]{width:100%;height:3px;accent-color:var(--sun);cursor:pointer}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.sc2{background:var(--card2);border-radius:5px;padding:6px 7px;border:1px solid var(--border)}
+.sc2 .l{font-size:9px;color:var(--muted);margin-bottom:1px}
+.sc2 .v{font-size:12px;font-weight:700;color:var(--text)}
+.sc2 .v.hi{color:var(--sun)}
+.ilist{display:flex;flex-direction:column;gap:2px;max-height:80px;overflow-y:auto}
+.iitem{display:flex;align-items:center;font-size:9px;background:var(--card2);padding:3px 6px;border-radius:4px;gap:3px}
+.iitem .nm{flex:1;color:var(--muted2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.iitem .ht{font-size:8px;color:var(--muted)}
+.idel{cursor:pointer;color:var(--red);opacity:.5;font-size:10px;padding:0 2px}.idel:hover{opacity:1}
+.iedit{cursor:pointer;color:var(--blue);opacity:.5;font-size:10px;padding:0 2px}.iedit:hover{opacity:1}
+#obs-ed{position:absolute;bottom:44px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;display:none;z-index:20;box-shadow:var(--shadow);gap:8px;align-items:center;flex-wrap:wrap}
+#obs-ed.show{display:flex}
+#obs-ed .lbl{font-size:10px;color:var(--muted2)}
+.mtog{display:flex;gap:2px;background:var(--card2);border-radius:5px;padding:2px}
+.mbtn{flex:1;padding:4px 4px;border-radius:4px;font-size:9px;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:var(--t);font-family:inherit}
+.mbtn.active{background:var(--card);color:var(--text)}
+#future-hint{position:absolute;top:9px;left:50%;transform:translateX(-50%);background:rgba(11,17,32,0.9);border:1px solid var(--border);border-radius:50px;padding:4px 14px;font-size:10px;color:var(--muted2);pointer-events:none;z-index:10;display:none}
+#sim-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);z-index:5;gap:8px}
+#sim-empty .ei{font-size:3rem;opacity:.3}
+#sim-empty h3{font-size:.95rem;font-weight:700;color:var(--muted2)}
+#sim-empty p{font-size:.78rem;color:var(--muted);text-align:center;max-width:220px;line-height:1.6}
+.btn{display:inline-flex;align-items:center;gap:4px;padding:6px 11px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:none;transition:var(--t);white-space:nowrap;font-family:inherit}
+.btn-p{background:var(--sun);color:#000}.btn-p:hover{background:var(--sun-d)}
+.btn-t{background:var(--teal-l);color:var(--teal);border:1px solid rgba(13,148,136,0.25)}.btn-t:hover{background:var(--teal);color:#fff}
+.btn-s{background:rgba(255,255,255,0.06);color:var(--text);border:1px solid var(--border)}.btn-s:hover{background:rgba(255,255,255,.12)}
+.btn-d{background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,.2)}.btn-d:hover{background:rgba(239,68,68,.2)}
+.btn-pu{background:var(--purple-l);color:var(--purple);border:1px solid rgba(139,92,246,.25)}.btn-pu:hover{background:rgba(139,92,246,.25)}
+.btn-report{background:linear-gradient(135deg,var(--sun),var(--teal));color:#000;font-weight:700}
+.btn-report:hover{opacity:.9}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-sm{padding:4px 8px;font-size:10px}
+.anim-on{background:var(--sun-l)!important;color:var(--sun)!important;border:1px solid rgba(245,158,11,.3)!important}
+.leaflet-draw-toolbar a,.leaflet-bar a{background-color:#141E2E!important;color:#F1F5F9!important;border-color:rgba(255,255,255,0.1)!important}
+.leaflet-draw-toolbar a:hover,.leaflet-bar a:hover{background-color:#1A2740!important}
+.leaflet-control-attribution{background:rgba(11,17,32,0.85)!important;color:#475569!important}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted2)}
+.leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+#toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 14px;font-size:11px;z-index:9999;transition:transform .24s ease;display:flex;align-items:center;gap:6px;box-shadow:var(--shadow)}
+#toast.show{transform:translateX(-50%) translateY(0)}
+
+/* ── PROGRESS MODAL ── */
+#progress-modal{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:10000;display:none;align-items:center;justify-content:center}
+#progress-modal.show{display:flex}
+.prog-box{background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:28px 32px;min-width:320px;text-align:center}
+.prog-title{font-size:1rem;font-weight:700;margin-bottom:6px}
+.prog-sub{font-size:0.8rem;color:var(--muted2);margin-bottom:18px}
+.prog-bar-wrap{background:var(--card2);border-radius:50px;height:6px;overflow:hidden;margin-bottom:10px}
+.prog-bar{height:100%;background:linear-gradient(90deg,var(--sun),var(--teal));border-radius:50px;transition:width .3s ease;width:0%}
+.prog-step{font-size:0.75rem;color:var(--muted);min-height:1.2em}
+</style>
+</head>
+<body>
+<div id="app">
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">☀</div>
+    <div class="logo-text">Sun<span>Sim</span></div>
+    <div class="logo-badge">Dev</div>
+  </div>
+  <div class="hdr-mid">
+    <div class="wf-step active" id="wfs-1"><span>1</span> Client</div>
+    <div class="wf-sep">›</div>
+    <div class="wf-step" id="wfs-2"><span>2</span> Map</div>
+    <div class="wf-sep">›</div>
+    <div class="wf-step" id="wfs-3"><span>3</span> Simulate</div>
+  </div>
+  <div class="hdr-right">
+    <div class="db-pill"><div class="db-dot spin" id="db-dot"></div><span id="db-lbl">Connecting…</span></div>
+    <button class="btn btn-s btn-sm" onclick="loadClients()">↺ Sync</button>
+    <button class="btn btn-s btn-sm" id="btn-to-map" style="display:none" onclick="goStep(2)">← Map</button>
+    <button class="btn btn-t btn-sm" id="btn-to-sim" style="display:none" onclick="goStep(3)">Simulate ›</button>
+    <button class="btn btn-report btn-sm" id="btn-report" style="display:none" onclick="runAssessment()">☀ Save & Report</button>
+    <button class="btn btn-s btn-sm" id="btn-view-report" style="display:none" onclick="viewReport()" title="View last generated report without re-saving">↗ View Report</button>
+  </div>
+</header>
+
+<main>
+
+<div id="client-panel">
+  <div class="cp-head">
+    <div class="cp-label">Client Registry</div>
+    <div class="searchbox">
+      <span style="color:var(--muted);font-size:12px">🔍</span>
+      <input type="text" id="search-in" placeholder="Name, address, state…" oninput="filterClients()">
+    </div>
+  </div>
+  <div class="cp-meta">
+    <span class="cp-count" id="cp-count">— clients</span>
+    <button class="btn-sync" onclick="loadClients()">↺ Refresh</button>
+  </div>
+  <div class="clist" id="clist">
+    <div class="lst-state"><div class="ico">📡</div><p>Loading registry…</p></div>
+  </div>
+</div>
+
+<div id="workspace">
+
+  <div id="cbar">
+    <div class="cbar-idle" id="cbar-idle"><span style="opacity:.35">👈</span> Select a client to begin</div>
+    <div id="cbar-loaded">
+      <div><div class="cbar-name" id="cbar-name">—</div><div class="cbar-addr" id="cbar-addr">—</div></div>
+      <div class="chips" id="cbar-chips"></div>
+    </div>
+  </div>
+
+  <!-- STEP 2: MAP -->
+  <div class="wpanel" id="panel-map">
+    <div id="map-sidebar">
+      <div class="ms-section">
+        <div class="ms-title">1 · Roof</div>
+        <div class="ms-hint">Trace the roof outline to define the installation area.</div>
+        <button class="draw-btn" id="db-roof" onclick="startDrawRoof()">
+          <span class="draw-btn-icon">🏠</span><span>Draw roof polygon</span>
+          <span class="layer-count" id="roof-count"></span>
+        </button>
+        <button class="draw-btn btn-d btn-sm" id="btn-clr-roof" onclick="clearRoof()" style="display:none;margin-bottom:0;padding:5px 8px;font-size:10px">🗑 Clear roof</button>
+        <div id="roof-area-label" style="font-size:10px;color:var(--sun);margin-top:4px;display:none"></div>
+      </div>
+      <div class="ms-section">
+        <div class="ms-title">2 · Existing trees</div>
+        <div class="ms-hint">Click on each tree visible on the satellite map.</div>
+        <div class="height-row">
+          <label>Height</label>
+          <input type="range" min="2" max="25" step="0.5" value="6" id="map-tree-h" oninput="document.getElementById('map-tree-hv').textContent=this.value+'m'">
+          <span id="map-tree-hv">6m</span>
+        </div>
+        <button class="draw-btn tree-btn" id="db-tree" onclick="startDrawTree()">
+          <span class="draw-btn-icon">🌳</span><span>Place tree</span>
+          <span class="layer-count" id="tree-map-count"></span>
+        </button>
+        <div class="layer-list" id="tree-map-list"></div>
+      </div>
+      <div class="ms-section">
+        <div class="ms-title">3 · Neighbouring buildings</div>
+        <div class="ms-hint">Draw outlines of walls, structures or fences nearby.</div>
+        <div class="height-row">
+          <label>Height</label>
+          <input type="range" min="1" max="40" step="0.5" value="5" id="map-bld-h" oninput="document.getElementById('map-bld-hv').textContent=this.value+'m'">
+          <span id="map-bld-hv">5m</span>
+        </div>
+        <button class="draw-btn bld-btn" id="db-bld" onclick="startDrawBld()">
+          <span class="draw-btn-icon">🏢</span><span>Draw building</span>
+          <span class="layer-count" id="bld-map-count"></span>
+        </button>
+        <div class="layer-list" id="bld-map-list"></div>
+      </div>
+      <div class="ms-section" style="border-bottom:none">
+        <div class="ms-title">Legend</div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div class="leg-item"><div class="leg-dot" style="background:rgba(245,158,11,0.6);border:1px solid #F59E0B"></div>Roof polygon</div>
+          <div class="leg-item"><div class="leg-dot" style="background:rgba(34,197,94,0.5);border-radius:50%;border:1px solid #22C55E"></div>Tree</div>
+          <div class="leg-item"><div class="leg-dot" style="background:rgba(139,92,246,0.5);border:1px solid #8B5CF6"></div>Neighbouring building</div>
+          <div class="leg-item"><div class="leg-dot" style="background:rgba(13,148,136,0.8);border-radius:50%;border:1px solid #0D9488"></div>Client pin</div>
+        </div>
+      </div>
+    </div>
+    <div id="map-wrap">
+      <div id="leaflet-map"></div>
+      <div class="draw-hint-bar" id="draw-hint-bar"></div>
+      <div class="map-status-bar">
+        <div class="sdot info" id="map-sdot"></div>
+        <span id="map-stxt">Select a client to fly the map to their location.</span>
+      </div>
+      <div class="map-run-row">
+        <div id="roof-badge-run" style="display:none" class="roof-badge-sm">
+          <span>🏠</span><div><div class="ra" id="roof-area-run">—</div><div style="font-size:8px;color:var(--muted)">roof</div></div>
+        </div>
+        <div style="font-size:10px;color:var(--muted2)" id="obs-summary"></div>
+        <div style="flex:1"></div>
+        <button class="btn btn-p btn-sm" id="btn-simulate" disabled onclick="goStep(3)">▶ Run Simulation</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3: SIMULATION -->
+  <div class="wpanel" id="panel-sim">
+    <div id="sim-sidebar">
+
+      <div class="ss">
+        <div class="st">Client & roof</div>
+        <div style="font-size:11px;font-weight:700;" id="ss-name">—</div>
+        <div style="font-size:9px;color:var(--muted2);margin-top:2px" id="ss-loc">—</div>
+        <div style="margin-top:5px" id="ss-roof-info"></div>
+      </div>
+
+      <div class="ss">
+        <div class="st">Sun</div>
+        <div class="cr"><div class="clr"><span class="cl">Month</span><span class="cv" id="c-month">Jun</span></div><input type="range" min="1" max="12" step="1" value="6" id="sl-month"></div>
+        <div class="cr"><div class="clr"><span class="cl">Time</span><span class="cv" id="c-time">12:00</span></div><input type="range" min="5" max="21" step="0.25" value="12" id="sl-time"></div>
+        <div class="cr"><div class="clr"><span class="cl">Latitude</span><span class="cv" id="c-lat">—</span></div><input type="range" min="0" max="70" step="0.5" value="9" id="sl-lat"></div>
+        <div style="display:flex;gap:4px;margin-top:3px">
+          <button class="btn btn-s btn-sm" id="btn-anim" onclick="toggleAnim()" style="flex:1">▶ Play</button>
+          <button class="btn btn-s btn-sm" onclick="setTime(6)">Dawn</button>
+          <button class="btn btn-s btn-sm" onclick="setTime(12)">Noon</button>
+        </div>
+      </div>
+
+      <div class="ss">
+        <div class="st">Building height</div>
+        <div class="cr"><div class="clr"><span class="cl">Height</span><span class="cv" id="c-bh">6 m</span></div><input type="range" min="2" max="30" step="0.5" value="6" id="sl-bh"></div>
+      </div>
+
+      <div class="ss">
+        <div class="st">Real obstructions <span style="font-weight:400;opacity:.5;font-size:8px">map + manual</span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <div class="cl" style="color:var(--green);font-weight:700">🌳 Trees <span id="tc" style="opacity:.5;font-weight:400"></span></div>
+          <button class="btn btn-sm" style="background:var(--green-l);color:var(--green);border:1px solid rgba(34,197,94,.25);font-size:9px;padding:2px 7px" onclick="addSimTree()">+ Add</button>
+        </div>
+        <div class="cr">
+          <div class="clr"><span class="cl">New tree height</span><span class="cv" id="c-sth">6 m</span></div>
+          <input type="range" min="2" max="25" step="0.5" value="6" id="sl-sth" oninput="document.getElementById('c-sth').textContent=this.value+' m'">
+        </div>
+        <div class="ilist" id="tlist"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;margin-bottom:4px">
+          <div class="cl" style="color:var(--purple);font-weight:700">🏢 Buildings <span id="bc" style="opacity:.5;font-weight:400"></span></div>
+          <button class="btn btn-sm" style="background:var(--purple-l);color:var(--purple);border:1px solid rgba(139,92,246,.25);font-size:9px;padding:2px 7px" onclick="setFMode('building')">+ Draw</button>
+        </div>
+        <div class="ilist" id="blist"></div>
+        <div style="display:flex;gap:4px;margin-top:6px">
+          <button class="btn btn-d btn-sm" onclick="clearMapTrees()" style="flex:1;font-size:9px">Clear trees</button>
+          <button class="btn btn-d btn-sm" onclick="clearMapBlds()" style="flex:1;font-size:9px">Clear bldgs</button>
+        </div>
+      </div>
+
+      <div class="ss">
+        <div class="st">Future / planned</div>
+        <div style="font-size:9px;color:var(--muted);margin-bottom:6px">Add imaginary obstacles to plan ahead</div>
+        <div class="mtog" style="margin-bottom:6px">
+          <button class="mbtn active" id="mode-ftree" onclick="setFMode('tree')">🌳 Tree</button>
+          <button class="mbtn" id="mode-fbld" onclick="setFMode('building')">🏢 Bldg</button>
+          <button class="mbtn" id="mode-fsel" onclick="setFMode('select')">✥ Edit</button>
+        </div>
+        <div id="ftree-ctrl">
+          <div class="cr"><div class="clr"><span class="cl">Tree height</span><span class="cv" id="c-fth">6 m</span></div><input type="range" min="2" max="25" step="0.5" value="6" id="sl-fth"></div>
+        </div>
+        <div id="fbld-ctrl" style="display:none">
+          <div class="cr"><div class="clr"><span class="cl">Height</span><span class="cv" id="c-fobh">8 m</span></div><input type="range" min="2" max="60" step="0.5" value="8" id="sl-fobh"></div>
+          <div style="font-size:9px;color:var(--muted);margin-bottom:5px">Click canvas → corners · Dbl-click → finish</div>
+        </div>
+        <div style="display:flex;gap:4px;margin-bottom:5px">
+          <button class="btn btn-d btn-sm" onclick="clearFuture()" style="flex:1">Clear planned</button>
+        </div>
+        <div class="ilist" id="flist"></div>
+      </div>
+
+      <div class="ss">
+        <div class="st">Stats</div>
+        <div class="sgrid">
+          <div class="sc2"><div class="l">Altitude</div><div class="v hi" id="st-alt">—</div></div>
+          <div class="sc2"><div class="l">Direction</div><div class="v" id="st-dir">—</div></div>
+          <div class="sc2"><div class="l">Shadow</div><div class="v" id="st-shad">—</div></div>
+          <div class="sc2"><div class="l">Daylight</div><div class="v hi" id="st-day">—</div></div>
+        </div>
+      </div>
+
+    </div>
+
+    <div id="sim-main">
+      <div class="stabs">
+        <div class="stab active" onclick="switchTab('aerial')" id="tab-a">🗺 Aerial</div>
+        <div class="stab" onclick="switchTab('ground')" id="tab-g">🏗 Ground</div>
+      </div>
+      <div class="sview active" id="view-a">
+        <canvas id="cv-aerial" class="sc"></canvas>
+        <canvas id="compass-cv"></canvas>
+        <div id="obs-ed">
+          <span class="lbl">Selected:</span>
+          <span id="obs-nm" style="font-size:10px;font-weight:700;color:var(--purple)">—</span>
+          <span class="lbl">Height</span>
+          <input type="range" min="2" max="60" step="0.5" value="8" id="sl-sel-h" style="width:65px;height:3px;accent-color:var(--purple)">
+          <span id="obs-hv" style="font-size:10px;font-weight:700;color:var(--purple);min-width:28px">8 m</span>
+          <button class="btn btn-pu btn-sm" onclick="finishObs()">✓ Done</button>
+          <button class="btn btn-d btn-sm" onclick="delSelected()">🗑</button>
+        </div>
+        <div id="future-hint">Click corners · Double-click to finish</div>
+      </div>
+      <div class="sview" id="view-g">
+        <canvas id="cv-ground" class="sc"></canvas>
+      </div>
+      <div id="sim-empty">
+        <div class="ei">☀</div>
+        <h3>No simulation loaded</h3>
+        <p>Select a client, map the site, then run the simulation.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+</main>
+</div>
+
+<!-- PROGRESS MODAL -->
+<div id="progress-modal">
+  <div class="prog-box">
+    <div class="prog-title" id="prog-title">Running Assessment…</div>
+    <div class="prog-sub" id="prog-sub">Computing sun path for 288 scenarios</div>
+    <div class="prog-bar-wrap"><div class="prog-bar" id="prog-bar"></div></div>
+    <div class="prog-step" id="prog-step">Starting…</div>
+  </div>
+</div>
+
+<div id="toast">✓ <span id="toast-msg"></span></div>
+
+<!-- Hidden canvas for map screenshot capture -->
+<canvas id="cv-map-capture" style="display:none"></canvas>
+
+<script>
+// ══════════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════════
+const SHEET   = 'https://opensheet.elk.sh/13hx-wNQPtBGvIDiM0nUYyAM9bvVorw2-qTi_cTPQGK0/Sheet1';
+const SAVE_URL = 'https://script.google.com/macros/s/AKfycbwFeF-C5aF07E50QZ2S5r0iJkIXISDiRs8463G_QSa16tZ_mS08RREgxGotAkdfgbgSLQ/exec';
+
+const MONTHS  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DECL    = [-23.45,-17.5,-8.5,4,15,23.45,23.45,15,4,-8.5,-17.5,-23.45];
+const toR     = d => d * Math.PI / 180;
+const toDeg   = r => r * 180 / Math.PI;
+
+// Nigeria bounding box
+const NG_BOUNDS = {latMin:4, latMax:14, lngMin:3, lngMax:15};
+function isNigeria(lat,lng){
+  return lat>=NG_BOUNDS.latMin && lat<=NG_BOUNDS.latMax && lng>=NG_BOUNDS.lngMin && lng<=NG_BOUNDS.lngMax;
+}
+
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+const ST = {
+  clients:[],filtered:[],activeClient:null,currentStep:1,
+  centroidLat:9.0,centroidLng:7.5,
+  roofLatLngs:[],roofAreaM2:0,
+  mapTrees:[],mapBuildings:[],
+  futureTrees:[],futureBuildings:[],nextFutureId:1,
+  aerialMode:'tree',drawingFBld:false,drawFPts:[],
+  dragging:false,dragStart:null,dragType:null,
+  dragObsId:null,dragObsPtsOrig:null,dragCornerIdx:-1,
+  selectedId:null,animating:false,animFrame:null,
+  timeVal:12,currentTab:'aerial',simReady:false,
+  mapDrawMode:null,
+  assessment:null,
+  // reportIndex: phone → [{id, date, url}] — populated from database on load
+  reportIndex:{}
+};
+
+function clientKey(c){ return 'ssd4_'+(c.Phone||'x')+'_'+(c['Full Name']||'').replace(/\s+/g,''); }
+
+function saveWork(){
+  if(!ST.activeClient) return;
+  try {
+    localStorage.setItem(clientKey(ST.activeClient), JSON.stringify({
+      roofLatLngs:ST.roofLatLngs, roofAreaM2:ST.roofAreaM2,
+      mapTrees:ST.mapTrees.map(t=>({lat:t.lat,lng:t.lng,h:t.h,id:t.id})),
+      mapBuildings:ST.mapBuildings.map(b=>({latLngs:b.latLngs,h:b.h,id:b.id,name:b.name})),
+      futureTrees:ST.futureTrees,futureBuildings:ST.futureBuildings,nextFutureId:ST.nextFutureId,
+      bh:document.getElementById('sl-bh').value
+    }));
+  } catch(e){}
+}
+
+function loadWork(c){
+  ST.roofLatLngs=[];ST.roofAreaM2=0;ST.mapTrees=[];ST.mapBuildings=[];
+  ST.futureTrees=[];ST.futureBuildings=[];ST.nextFutureId=1;
+  try {
+    const s=JSON.parse(localStorage.getItem(clientKey(c)));
+    if(s){
+      ST.roofLatLngs=s.roofLatLngs||[];ST.roofAreaM2=s.roofAreaM2||0;
+      ST.futureTrees=s.futureTrees||[];ST.futureBuildings=s.futureBuildings||[];ST.nextFutureId=s.nextFutureId||1;
+      if(s.bh) document.getElementById('sl-bh').value=s.bh;
+      (s.mapTrees||[]).forEach(t=>ST.mapTrees.push({lat:t.lat,lng:t.lng,h:t.h,id:t.id,leafletLayer:null}));
+      (s.mapBuildings||[]).forEach(b=>ST.mapBuildings.push({latLngs:b.latLngs,h:b.h,id:b.id,name:b.name,leafletLayer:null}));
+      return true;
+    }
+  } catch(e){}
+  return false;
+}
+
+function getNextMapId(){
+  const ids=[...ST.mapTrees.map(t=>t.id),...ST.mapBuildings.map(b=>b.id)];
+  return ids.length?Math.max(...ids)+1:1;
+}
+
+// ══════════════════════════════════════════════
+// SOLAR MATH
+// ══════════════════════════════════════════════
+function sAlt(lat,dec,t){
+  const H=toR((t-12)*15),L=toR(lat),D=toR(dec);
+  return toDeg(Math.asin(Math.sin(L)*Math.sin(D)+Math.cos(L)*Math.cos(D)*Math.cos(H)));
+}
+function sAz(lat,dec,t){
+  const H=toR((t-12)*15),L=toR(lat),D=toR(dec);
+  const alt=toR(sAlt(lat,dec,t));
+  const cosAz=(Math.sin(D)-Math.sin(L)*Math.sin(alt))/(Math.cos(L)*Math.cos(alt));
+  const c=Math.max(-1,Math.min(1,cosAz));
+  return t<12?180-toDeg(Math.acos(c)):180+toDeg(Math.acos(c));
+}
+function sunriseH(lat,dec){
+  const c=-Math.tan(toR(lat))*Math.tan(toR(dec));
+  if(c<-1) return 0; if(c>1) return null;
+  return 12-toDeg(Math.acos(c))/15;
+}
+
+function getSP(){
+  const month=+document.getElementById('sl-month').value;
+  const lat=+document.getElementById('sl-lat').value;
+  const t=ST.timeVal, dec=DECL[month-1];
+  const alt=sAlt(lat,dec,t), az=sAz(lat,dec,t);
+  const rise=sunriseH(lat,dec), set=rise!=null?24-rise:null;
+  return{month,lat,t,dec,alt,az,
+    dayHrs:rise!=null&&set!=null?(set-rise).toFixed(1):'0',
+    sm:alt>1?(1/Math.tan(toR(alt))).toFixed(1):null
+  };
+}
+
+// ── Compute roof shading pct at a given moment ──
+// Uses the same geometry as ground view: shadow length from building height + obstructions
+// Returns 0-100 percentage of roof area receiving direct sun
+function computeShadingPct(lat, bh, month, hour){
+  const dec = DECL[month-1];
+  const alt = sAlt(lat, dec, hour);
+  if(alt <= 0.5) return 0; // below/near horizon = no sun
+  const az = sAz(lat, dec, hour);
+  const azRad = toR(az-180);
+  const tanA = Math.tan(toR(alt));
+  const shadowMult = 1/tanA; // shadow length = height × mult
+
+  // Roof shadow from own building: how much of the roof the shadow covers
+  // We model the roof as a unit square and compute shadow sweep
+  // Shadow of the building (height bh) cast towards azimuth direction
+  // The roof itself is above the building — self-shadow when sun is very low
+  const selfShadowFraction = Math.min(1, shadowMult * 0.15); // simplified self-shade for low angles
+
+  // Obstruction shadows: each tree/building casts shadow across part of the roof
+  // Distance from obstruction to roof centroid determines coverage fraction
+  // We use a simplified angular obstruction model
+  let obstructionFraction = 0;
+
+  const allObs = [
+    ...ST.mapTrees.map(t=>({type:'tree',h:t.h,lat:t.lat,lng:t.lng})),
+    ...ST.mapBuildings.map(b=>({type:'building',h:b.h,
+      lat:b.latLngs.reduce((s,p)=>s+p.lat,0)/b.latLngs.length,
+      lng:b.latLngs.reduce((s,p)=>s+p.lng,0)/b.latLngs.length})),
+    ...ST.futureBuildings.map(b=>({type:'future',h:b.h,
+      lat:ST.centroidLat+(b.pts.reduce((s,p)=>s+p.fy,0)/b.pts.length-0.5)*0.002,
+      lng:ST.centroidLng+(b.pts.reduce((s,p)=>s+p.fx,0)/b.pts.length-0.5)*0.002}))
+  ];
+
+  if(ST.roofLatLngs.length >= 3 && allObs.length > 0){
+    const cosLat = Math.cos(toR(lat)), mPd = 111320;
+    const roofSpanM = Math.sqrt(ST.roofAreaM2);
+
+    allObs.forEach(obs => {
+      // Vector from obstruction to roof centroid
+      const dx = (ST.centroidLng - obs.lng) * mPd * cosLat;
+      const dy = (ST.centroidLat - obs.lat) * mPd;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if(dist < 1) return; // on the roof itself
+
+      // Shadow length of this obstruction
+      const sLen = obs.h * shadowMult;
+      // Shadow vector direction (shadow falls opposite to sun azimuth)
+      const svx = Math.sin(azRad) * sLen;
+      const svy = -Math.cos(azRad) * sLen;
+
+      // Does shadow tip reach or pass the roof?
+      // Check if shadow projection overlaps roof area
+      // Shadow hits roof if the shadow vector from obstruction points toward roof centroid
+      const dotX = dx * svx + dy * svy;
+      const shadowDist = Math.sqrt(svx*svx + svy*svy);
+      if(shadowDist < 1) return;
+
+      // Fraction of roof covered by this shadow
+      // Angular width of obstruction as seen from roof / angular width of roof
+      const obsWidth = obs.type==='tree' ? 4 : 8; // effective width in meters
+      const angularCover = Math.atan2(obsWidth, dist);
+      const roofAngle = Math.atan2(roofSpanM, dist);
+      const coverFrac = Math.min(0.85, angularCover / Math.max(roofAngle, 0.1));
+
+      // Only count if shadow actually reaches the roof
+      // Check alignment between shadow direction and obstruction-to-roof direction
+      const roofDir = Math.atan2(dy, dx);
+      const shadowDir = Math.atan2(svy, svx);
+      const angleDiff = Math.abs(roofDir - shadowDir);
+      const normalised = Math.min(angleDiff, Math.PI*2 - angleDiff);
+
+      if(normalised < Math.PI/3 && sLen > dist * 0.7){
+        obstructionFraction = Math.min(0.95, obstructionFraction + coverFrac * (1 - normalised/(Math.PI/3)));
+      }
+    });
+  }
+
+  const totalShaded = Math.min(0.98, selfShadowFraction + obstructionFraction);
+  return Math.round((1 - totalShaded) * 100);
+}
+
+// ── Compute full 12×24 shading matrix ──
+function computeMatrix(lat, bh){
+  const matrix = []; // matrix[month_idx][hour_idx]
+  const hours = Array.from({length:19},(_,i)=>i+5); // 05:00 to 23:00
+
+  for(let m=0;m<12;m++){
+    const row = [];
+    for(const h of hours){
+      row.push(computeShadingPct(lat, bh, m+1, h));
+    }
+    matrix.push(row);
+  }
+  return{matrix, hours};
+}
+
+// ── Compute monthly peak sun hours from matrix ──
+// Peak sun hours = sum of (shading_pct/100) per hour per day
+// This represents the effective sun-weighted hours
+function computePeakSunHours(matrix, lat){
+  const psh = [];
+  for(let m=0;m<12;m++){
+    const dec = DECL[m];
+    const rise = sunriseH(lat,dec);
+    const set = rise!=null ? 24-rise : null;
+    const daylightHrs = rise!=null&&set!=null ? set-rise : 0;
+    // Sum weighted irradiance across the day
+    // At each hour, the sun fraction of roof in sun * sin(altitude) gives effective irradiance weight
+    let pshSum = 0;
+    for(let hi=0;hi<matrix[m].length;hi++){
+      const h = 5 + hi;
+      const alt = sAlt(lat, dec, h);
+      if(alt > 0){
+        const shadeFrac = matrix[m][hi] / 100;
+        // Weight by sin(altitude) to account for angle of incidence, approximate 1hr slot
+        const weight = Math.sin(toR(alt));
+        pshSum += shadeFrac * weight;
+      }
+    }
+    // Normalise to peak sun hours (1 PSH = 1 hour of 1000W/m² equivalent)
+    // For Nigeria, multiply by empirical factor based on clear-sky irradiance
+    const clearSkyFactor = 1 + 0.3 * Math.sin(toR((m+1)*30)); // seasonal variation
+    psh.push(Math.max(0, +(pshSum * 1.85 * clearSkyFactor).toFixed(1)));
+  }
+  return psh;
+}
+
+// ── Season label for a given month, locale-aware ──
+function getSeasonLabel(monthIdx, lat, lng){
+  const ng = isNigeria(lat, lng);
+  if(ng){
+    // Nigeria: Dry Nov-Mar, Rainy Apr-Oct (simplified, varies slightly by region)
+    const DRY = [10,11,0,1,2]; // Nov Dec Jan Feb Mar (0-indexed)
+    return DRY.includes(monthIdx) ? 'Dry Season' : 'Rainy Season';
+  }
+  // Southern hemisphere flip
+  const flip = lat < 0;
+  const idx = flip ? (monthIdx+6)%12 : monthIdx;
+  if(idx>=2&&idx<=4) return 'Spring';
+  if(idx>=5&&idx<=7) return 'Summer';
+  if(idx>=8&&idx<=10) return 'Autumn';
+  return 'Winter';
+}
+
+// ── Find key scenario moments ──
+function findKeyMoments(matrix, lat, lng){
+  const bh = +document.getElementById('sl-bh').value;
+  // Best case: month + hour with highest shading pct
+  let bestPct=0, bestM=5, bestH=12;
+  // Worst case: month with lowest daily average at solar noon
+  let worstPct=100, worstM=11, worstH=12;
+  // Worst morning: earliest significant shading from obstructions
+  let worstMorningPct=100, worstMorningM=0, worstMorningH=8;
+
+  for(let m=0;m<12;m++){
+    for(let hi=0;hi<matrix.length;hi++){
+      const h = 5+hi;
+      const pct = matrix[m][hi];
+      if(pct>bestPct){bestPct=pct;bestM=m;bestH=h;}
+    }
+    // Noon check (index 7 = hour 12)
+    const noonPct = matrix[m][7];
+    if(noonPct < worstPct){worstPct=noonPct;worstM=m;}
+    // Morning check (index 3 = hour 8)
+    const morningPct = matrix[m][3];
+    if(morningPct < worstMorningPct){worstMorningPct=morningPct;worstMorningM=m;worstMorningH=8;}
+  }
+
+  // Best afternoon window (14:00 = index 9)
+  let bestAfternoonPct=0, bestAfternoonM=4;
+  for(let m=0;m<12;m++){
+    const pct = matrix[m][9];
+    if(pct>bestAfternoonPct){bestAfternoonPct=pct;bestAfternoonM=m;}
+  }
+
+  return[
+    {label:'Best sun — peak conditions', month:bestM, hour:bestH, pct:bestPct, season:getSeasonLabel(bestM,lat,lng)},
+    {label:'Lowest sun — worst case', month:worstM, hour:12, pct:worstPct, season:getSeasonLabel(worstM,lat,lng)},
+    {label:'Morning shadow impact', month:worstMorningM, hour:8, pct:worstMorningPct, season:getSeasonLabel(worstMorningM,lat,lng)},
+    {label:'Afternoon peak window', month:bestAfternoonM, hour:14, pct:bestAfternoonPct, season:getSeasonLabel(bestAfternoonM,lat,lng)}
+  ];
+}
+
+// ── Analyse obstructions and generate findings ──
+function analyseObstructions(lat, lng, matrix){
+  const findings = [];
+  const allObs = [
+    ...ST.mapTrees.map(t=>({type:'tree',name:`Tree ${t.id}`,h:t.h,lat:t.lat,lng:t.lng})),
+    ...ST.mapBuildings.map(b=>({type:'building',name:b.name,h:b.h,
+      lat:b.latLngs.reduce((s,p)=>s+p.lat,0)/b.latLngs.length,
+      lng:b.latLngs.reduce((s,p)=>s+p.lng,0)/b.latLngs.length}))
+  ];
+
+  if(allObs.length === 0){
+    findings.push({type:'positive',title:'No obstructions mapped',body:'No neighbouring trees or buildings were identified on the satellite map. The roof has clear sky access from all directions. This is an ideal installation site.'});
+    return findings;
+  }
+
+  const cosLat = Math.cos(toR(lat)), mPd = 111320;
+  allObs.forEach(obs=>{
+    const dx=(obs.lng-ST.centroidLng)*mPd*cosLat;
+    const dy=(obs.lat-ST.centroidLat)*mPd;
+    const dist=Math.round(Math.sqrt(dx*dx+dy*dy));
+
+    // Determine bearing of obstruction from roof
+    const bearing = toDeg(Math.atan2(dx, dy));
+    const bearingNorm = (bearing + 360) % 360;
+    const dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    const dirLabel = dirs[Math.round(bearingNorm/22.5)%16];
+
+    // How much does it affect morning vs afternoon vs both?
+    const morningImpact = obs.h / (dist * Math.tan(toR(20)));
+    const impact = morningImpact > 0.5 ? 'critical' : morningImpact > 0.2 ? 'warning' : 'positive';
+
+    const impactPeriod = bearingNorm < 90 || bearingNorm > 270
+      ? 'Morning hours (sun rises in east)'
+      : bearingNorm > 90 && bearingNorm < 270
+      ? 'Afternoon hours (sun sets in west)'
+      : 'Midday hours';
+
+    const shadowLen = Math.round(obs.h * (1/Math.tan(toR(45)))); // shadow at 45° as reference
+    findings.push({
+      type:impact,
+      title:`${obs.type==='tree'?'🌳':'🏢'} ${obs.name} — ${dirLabel} of roof, ${dist}m away`,
+      body:`This ${obs.h}m ${obs.type} is located to the ${dirLabel} approximately ${dist}m from the roof centroid. It will primarily affect ${impactPeriod.toLowerCase()}. At a 45° sun angle, its shadow extends approximately ${shadowLen}m. ${impact==='critical'?'Panel placement should avoid the '+dirLabel+' section of the roof.':impact==='warning'?'Minor impact on generation — manageable with correct panel placement.':'Impact is minimal due to sufficient distance or low height.'}`
+    });
+  });
+
+  // General positive finding if good sun hours
+  const junePct = matrix[5][7]; // June noon
+  if(junePct > 80){
+    findings.push({type:'positive',title:'✅ South-facing roof area largely unobstructed',body:`At solar noon during peak months, ${junePct}% of the roof receives direct sunlight. The south and south-westerly sections are the primary recommended zone for panel placement.`});
+  }
+  return findings;
+}
+
+// ── Recommend panel zone and system sizing ──
+function generateRecommendations(psh, matrix, lat, lng, roofArea, bh, client){
+  const avgPsh = +(psh.reduce((a,b)=>a+b,0)/12).toFixed(1);
+  const peakPsh = Math.max(...psh);
+  const worstPsh = Math.min(...psh);
+  const peakMonth = MONTHS[psh.indexOf(peakPsh)];
+  const worstMonth = MONTHS[psh.indexOf(worstPsh)];
+  const usableArea = +(roofArea * 0.74).toFixed(1); // typical 74% usable factor
+  const goal = +(client['Coverage Level']||70);
+  const consumption = +(client['Avg Consumption Value']||0);
+  const unit = (client['Avg Consumption Unit']||'naira').toLowerCase();
+  const ng = isNigeria(lat, lng);
+
+  // Rough system sizing: 1 kWp ≈ 5-6 panels ≈ 9-10m²
+  const kWp = +(usableArea / 9.5).toFixed(1);
+  const estKwh = +(avgPsh * kWp * 0.8 * 30).toFixed(0); // monthly kWh estimate, 80% system eff
+
+  const recs = [];
+  recs.push({num:1, text:`<strong>Primary panel zone:</strong> The south and south-westerly sections of the roof polygon — approximately ${usableArea} m² of the ${roofArea.toFixed(0)} m² total — receive the most consistent direct sunlight year-round.`});
+  if(ST.mapTrees.length>0){
+    const tallest = ST.mapTrees.reduce((a,b)=>a.h>b.h?a:b);
+    recs.push({num:2, text:`<strong>Tree mitigation:</strong> The tallest mapped tree (${tallest.h}m) is the primary morning shade risk. Trimming to under ${Math.round(tallest.h*0.5)}m would recover the shaded roof section and improve daily generation by an estimated 10–18%.`});
+  }
+  recs.push({num:recs.length+1, text:`<strong>System sizing for ${goal}% goal:</strong> Based on ${avgPsh} average peak sun hours and ${usableArea} m² usable area, a <strong>${(kWp*goal/100).toFixed(1)}–${kWp} kWp</strong> system is recommended. This would yield approximately ${Math.round(estKwh*goal/100)}–${estKwh} kWh/month.`});
+  recs.push({num:recs.length+1, text:`<strong>${ng?'Harmattan (Dry Season)':'Winter'} performance:</strong> ${worstMonth} is the lowest sun month at ${worstPsh} peak sun hours/day — ${ng?'caused by harmattan haze reducing direct irradiance, not low sun angle':'caused by low solar altitude'}. Battery storage sized for ${Math.round(1.5*goal/70)} day${Math.round(1.5*goal/70)>1?'s':''} autonomy is recommended to buffer this period.`});
+  recs.push({num:recs.length+1, text:`<strong>Best generation window:</strong> Daily generation is highest from 09:00–16:00. ${peakMonth} is the peak month at ${peakPsh} peak sun hours — plan any battery-intensive activities${ng?' (harmattan period cleaning, equipment checks)':''} around this window.`});
+  return recs;
+}
+
+// ══════════════════════════════════════════════
+// WORKFLOW
+// ══════════════════════════════════════════════
+function goStep(n){
+  if(n===2&&!ST.activeClient){toast('Select a client first.');return;}
+  if(n===3&&ST.roofLatLngs.length<3){toast('Draw the roof polygon first.');return;}
+  ST.currentStep=n;
+  ['panel-map','panel-sim'].forEach(id=>document.getElementById(id).classList.remove('active'));
+  if(n===2){document.getElementById('panel-map').classList.add('active');setTimeout(()=>lmap.invalidateSize(),100);}
+  if(n===3){document.getElementById('panel-sim').classList.add('active');onEnterSim();}
+  ['wfs-1','wfs-2','wfs-3'].forEach((id,i)=>{
+    document.getElementById(id).className='wf-step'+(i+1===n?' active':i+1<n?' done':'');
+  });
+  document.getElementById('btn-to-map').style.display=n===3?'':'none';
+  document.getElementById('btn-to-sim').style.display=n===2?'':'none';
+  document.getElementById('btn-report').style.display=n===3?'':'none';
+  // Show "View Report" only if an assessment has already been generated this session
+  document.getElementById('btn-view-report').style.display=(n===3&&ST.assessment)?'':'none';
+}
+
+// ══════════════════════════════════════════════
+// DATABASE
+// ══════════════════════════════════════════════
+function setDbStatus(s,m){document.getElementById('db-dot').className='db-dot '+s;document.getElementById('db-lbl').textContent=m;}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+async function loadClients(){
+  setDbStatus('spin','Fetching…');
+  document.getElementById('clist').innerHTML='<div class="lst-state"><div class="ico">📡</div><p>Loading…</p></div>';
+  try{
+    const r=await fetch(SHEET,{method:'GET',mode:'cors'});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const data=await r.json();
+    ST.clients=data.filter(c=>c['Full Name']&&parseFloat(c.Latitude)&&parseFloat(c.Longitude));
+    ST.filtered=ST.clients.slice();
+    setDbStatus('ok',ST.clients.length+' clients');
+    renderClients();
+    toast('Registry synced — '+ST.clients.length+' clients.');
+  }catch(err){
+    setDbStatus('err','Failed');
+    document.getElementById('clist').innerHTML='<div class="lst-state"><div class="ico">⚠️</div><p>Connection failed.<br>Click Refresh to retry.</p></div>';
+  }
+}
+
+function filterClients(){
+  const q=document.getElementById('search-in').value.toLowerCase().trim();
+  ST.filtered=q?ST.clients.filter(c=>(c['Full Name']||'').toLowerCase().includes(q)||(c.Address||'').toLowerCase().includes(q)||(c.State||'').toLowerCase().includes(q)||(c.Phone||'').includes(q)):ST.clients.slice();
+  renderClients();
+}
+
+function renderClients(){
+  const el=document.getElementById('clist');
+  document.getElementById('cp-count').textContent=ST.filtered.length+' client'+(ST.filtered.length!==1?'s':'');
+  if(!ST.filtered.length){el.innerHTML='<div class="lst-state"><div class="ico">🔍</div><p>No matches.</p></div>';return;}
+  el.innerHTML=ST.filtered.map((c,i)=>{
+    const isActive=ST.activeClient&&ST.activeClient.Phone===c.Phone&&ST.activeClient['Full Name']===c['Full Name'];
+    const hasSaved=!!localStorage.getItem(clientKey(c));
+    // Check if this client has a stored report URL in our cached reports index
+    const reports=ST.reportIndex[c.Phone]||[];
+    const latestReport=reports[0]||null;
+    const cov=c['Coverage Level']||'';
+    return `<div class="ccard${isActive?' active':''}" onclick="selectClient(${i})">
+      <div class="cc-name">${esc(c['Full Name'])}${hasSaved?'<span class="saved-dot"></span>':''}</div>
+      <div class="cc-meta"><span>${esc(c.State||'—')}</span><span>${esc(c['Property Type']||'—')}</span><span>${esc(c['Meter Type']||'—')}</span></div>
+      <div class="cc-coords">${parseFloat(c.Latitude).toFixed(4)}, ${parseFloat(c.Longitude).toFixed(4)}</div>
+      ${cov?`<span class="cc-tag tag-${cov}">${cov}% goal</span>`:''}
+      ${latestReport?`
+        <div style="display:flex;gap:5px;margin-top:6px;align-items:center">
+          <button class="btn btn-t btn-sm" style="font-size:9px;padding:3px 9px"
+            onclick="event.stopPropagation();openClientReport('${esc(c.Phone||'')}','${esc(latestReport.id)}')">
+            📋 View Report
+          </button>
+          <span style="font-size:8px;color:var(--muted)">${esc(latestReport.date)}</span>
+        </div>`:''}
+    </div>`;
+  }).join('');
+}
+
+// Open a stored report for a client — fetches from database and regenerates
+function openClientReport(phone, reportId){
+  loadAndViewReport(phone, reportId);
+}
+
+// ══════════════════════════════════════════════
+// SELECT CLIENT
+// ══════════════════════════════════════════════
+function selectClient(idx){
+  const c=ST.filtered[idx];if(!c)return;
+  if(ST.activeClient)saveWork();
+  ST.activeClient=c;
+  ST.centroidLat=parseFloat(c.Latitude);
+  ST.centroidLng=parseFloat(c.Longitude);
+  document.getElementById('sl-lat').value=Math.abs(ST.centroidLat).toFixed(1);
+  clearAllMapLayers();
+  loadWork(c);
+
+  document.getElementById('cbar-idle').style.display='none';
+  document.getElementById('cbar-loaded').style.display='flex';
+  document.getElementById('cbar-name').textContent=c['Full Name'];
+  document.getElementById('cbar-addr').textContent=(c.Address||'')+' · '+c.Phone+(c.Email?' · '+c.Email:'');
+  const cov=c['Coverage Level']||'—';
+  document.getElementById('cbar-chips').innerHTML=
+    `<span class="chip teal">${esc(c.State||'—')}</span><span class="chip">${esc(c['Property Type']||'—')}</span>
+     <span class="chip">${esc(c['Meter Type']||'—')}</span><span class="chip sun">☀ ${cov}% goal</span>
+     <span class="chip">👥 ${c.Occupants||'—'}</span>${c['Avg Consumption Value']?`<span class="chip">⚡ ${c['Avg Consumption Value']} ${c['Avg Consumption Unit']||''}/mo</span>`:''}`;
+
+  renderClients();
+  goStep(2);
+
+  setTimeout(()=>{
+    lmap.setView([ST.centroidLat,ST.centroidLng],19);
+    if(clientMarker)lmap.removeLayer(clientMarker);
+    clientMarker=L.marker([ST.centroidLat,ST.centroidLng],{icon:pinIcon})
+      .addTo(lmap).bindPopup(`<strong>${esc(c['Full Name'])}</strong><br>${esc(c.Address||'')}`).openPopup();
+    if(ST.roofLatLngs.length>=3){restoreRoofOnMap();updateRoofUI();document.getElementById('btn-simulate').disabled=false;}
+    ST.mapTrees.forEach(t=>{t.leafletLayer=addTreeMarker(t.lat,t.lng,t.h,t.id);});
+    ST.mapBuildings.forEach(b=>{b.leafletLayer=addBldPolygon(b.latLngs,b.h,b.id,b.name);});
+    updateMapSideLists();updateObsSummary();
+    const hasWork=ST.roofLatLngs.length>=3;
+    setMapStatus(hasWork?'ok':'info',hasWork
+      ?`Saved site loaded — ${ST.mapTrees.length} trees, ${ST.mapBuildings.length} buildings. Click "Run Simulation" or keep drawing.`
+      :`Arrived at ${c['Full Name']}'s site. Start with the roof polygon, then mark trees and nearby buildings.`);
+  },150);
+  toast('Loaded: '+c['Full Name']);
+}
+
+// ══════════════════════════════════════════════
+// LEAFLET MAP
+// ══════════════════════════════════════════════
+const lmap=L.map('leaflet-map',{zoomControl:true}).setView([9.082,8.6753],6);
+const tileSat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'Tiles © Esri · Powered by Esri',maxZoom:21});
+const tileOSM=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19});
+tileSat.addTo(lmap);
+L.control.layers({'Satellite (Esri)':tileSat,'Street map':tileOSM},{},{position:'topright'}).addTo(lmap);
+const roofLayer=new L.FeatureGroup().addTo(lmap);
+const treeLayer=new L.FeatureGroup().addTo(lmap);
+const bldLayer=new L.FeatureGroup().addTo(lmap);
+const roofDrawCtrl=new L.Control.Draw({draw:{polygon:{allowIntersection:false,showArea:true,shapeOptions:{color:'#F59E0B',fillColor:'#F59E0B',fillOpacity:0.22,weight:2}},polyline:false,rectangle:false,circle:false,marker:false,circlemarker:false},edit:{featureGroup:roofLayer,remove:false}});
+const bldDrawCtrl=new L.Control.Draw({draw:{polygon:{allowIntersection:false,shapeOptions:{color:'#8B5CF6',fillColor:'#8B5CF6',fillOpacity:0.25,weight:2}},polyline:false,rectangle:false,circle:false,marker:false,circlemarker:false},edit:{featureGroup:bldLayer,remove:false}});
+let roofCtrlAdded=false,bldCtrlAdded=false,clientMarker=null,treeClickActive=false;
+
+const pinIcon=L.divIcon({html:`<div style="width:24px;height:32px;filter:drop-shadow(0 2px 5px rgba(0,0,0,.5))"><svg viewBox="0 0 24 32" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C5.37 0 0 5.37 0 12c0 8.25 12 20 12 20S24 20.25 24 12C24 5.37 18.63 0 12 0z" fill="#0D9488"/><circle cx="12" cy="12" r="5" fill="white"/></svg></div>`,className:'',iconSize:[24,32],iconAnchor:[12,32],popupAnchor:[0,-34]});
+
+function startDrawRoof(){
+  stopAllDrawModes();ST.mapDrawMode='roof';
+  if(!roofCtrlAdded){lmap.addControl(roofDrawCtrl);roofCtrlAdded=true;}
+  new L.Draw.Polygon(lmap,{allowIntersection:false,shapeOptions:{color:'#F59E0B',fillColor:'#F59E0B',fillOpacity:0.22,weight:2}}).enable();
+  document.getElementById('db-roof').classList.add('active-draw');
+  setHint('🏠 Click corners of the roof outline · Double-click to close');
+  setMapStatus('info','Tracing roof: click each corner, double-click to finish.');
+}
+
+function startDrawTree(){
+  stopAllDrawModes();
+  setTimeout(()=>{
+    ST.mapDrawMode='tree';treeClickActive=true;
+    document.getElementById('db-tree').classList.add('active-draw');
+    lmap.getContainer().style.cursor='crosshair';
+    setHint('🌳 Click directly on each tree · Click "Place tree" again to stop');
+    setMapStatus('info','Tree mode ON — click each tree on the satellite map. Click the button again to stop.');
+  },50);
+}
+
+lmap.on('click',function(e){
+  if(!treeClickActive)return;
+  const h=+document.getElementById('map-tree-h').value;
+  const id=getNextMapId();
+  const layer=addTreeMarker(e.latlng.lat,e.latlng.lng,h,id);
+  ST.mapTrees.push({lat:e.latlng.lat,lng:e.latlng.lng,h,id,leafletLayer:layer});
+  updateMapSideLists();updateSimObsLists();updateObsSummary();saveWork();
+  setMapStatus('info','🌳 Tree '+id+' placed ('+h+'m). Keep clicking or click button to stop.');
+});
+
+document.getElementById('db-tree').addEventListener('click',function(){
+  if(treeClickActive){stopAllDrawModes();setMapStatus('ok','Tree placement done — '+ST.mapTrees.length+' tree'+(ST.mapTrees.length!==1?'s':'')+' mapped.');}
+});
+
+lmap.on(L.Draw.Event.DRAWSTART,()=>{document.getElementById('draw-hint-bar').style.display='block';});
+lmap.on(L.Draw.Event.DRAWSTOP,()=>{hideHint();});
+lmap.on(L.Draw.Event.CREATED,function(e){
+  if(ST.mapDrawMode==='roof'){
+    roofLayer.clearLayers();roofLayer.addLayer(e.layer);
+    const lls=e.layer.getLatLngs()[0];
+    ST.roofLatLngs=lls.map(ll=>({lat:ll.lat,lng:ll.lng}));
+    ST.roofAreaM2=calcArea(lls);
+    updateRoofUI();
+    document.getElementById('btn-simulate').disabled=false;
+    setMapStatus('ok','Roof drawn — '+Math.round(ST.roofAreaM2)+' m². Now mark trees and nearby buildings.');
+    saveWork();toast('Roof polygon saved — '+Math.round(ST.roofAreaM2)+' m²');
+    document.getElementById('db-roof').classList.remove('active-draw');
+    ST.mapDrawMode=null;hideHint();
+  } else if(ST.mapDrawMode==='building'){
+    const lls=e.layer.getLatLngs()[0];
+    const id=getNextMapId();
+    const h=+document.getElementById('map-bld-h').value;
+    const name='Bldg '+id;
+    const layer=addBldPolygon(lls.map(ll=>({lat:ll.lat,lng:ll.lng})),h,id,name);
+    ST.mapBuildings.push({latLngs:lls.map(ll=>({lat:ll.lat,lng:ll.lng})),h,id,name,leafletLayer:layer});
+    updateMapSideLists();updateSimObsLists();updateObsSummary();saveWork();
+    toast('🏢 '+name+' added — '+h+'m');
+    setMapStatus('info','Building saved. Click "Draw building" again for another.');
+    document.getElementById('db-bld').classList.remove('active-draw');
+    ST.mapDrawMode=null;hideHint();
+  }
+});
+
+function startDrawBld(){
+  stopAllDrawModes();ST.mapDrawMode='building';
+  if(!bldCtrlAdded){lmap.addControl(bldDrawCtrl);bldCtrlAdded=true;}
+  new L.Draw.Polygon(lmap,{allowIntersection:false,shapeOptions:{color:'#8B5CF6',fillColor:'#8B5CF6',fillOpacity:0.25,weight:2}}).enable();
+  document.getElementById('db-bld').classList.add('active-draw');
+  setHint('🏢 Click each corner of the building footprint · Double-click to finish');
+  setMapStatus('info','Building mode: click each corner, double-click to close.');
+}
+
+function addTreeMarker(lat,lng,h,id){
+  const icon=L.divIcon({html:`<div style="width:22px;height:22px;border-radius:50%;background:rgba(34,197,94,0.82);border:2px solid #22C55E;box-shadow:0 2px 8px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer">🌳</div>`,className:'',iconSize:[22,22],iconAnchor:[11,11]});
+  const marker=L.marker([lat,lng],{icon,zIndexOffset:100}).bindPopup(`<b>🌳 Tree ${id}</b><br>Height: <b>${h}m</b><br><small>${lat.toFixed(5)}, ${lng.toFixed(5)}</small><br><button onclick="removeMapTree(${id})" style="margin-top:4px;font-size:11px;cursor:pointer;color:#ef4444;background:none;border:1px solid #ef4444;border-radius:4px;padding:2px 8px">Remove</button>`);
+  treeLayer.addLayer(marker);return marker;
+}
+
+function addBldPolygon(latlngs,h,id,name){
+  const poly=L.polygon(latlngs.map(p=>[p.lat,p.lng]),{color:'#8B5CF6',fillColor:'#8B5CF6',fillOpacity:0.25,weight:2}).bindPopup(`<b>🏢 ${name}</b><br>Height: <b>${h}m</b><br><button onclick="removeMapBld(${id})" style="margin-top:4px;font-size:11px;cursor:pointer;color:#ef4444;background:none;border:1px solid #ef4444;border-radius:4px;padding:2px 8px">Remove</button>`);
+  bldLayer.addLayer(poly);return poly;
+}
+
+function stopAllDrawModes(){
+  treeClickActive=false;ST.mapDrawMode=null;
+  lmap.getContainer().style.cursor='';
+  document.getElementById('db-roof').classList.remove('active-draw');
+  document.getElementById('db-tree').classList.remove('active-draw');
+  document.getElementById('db-bld').classList.remove('active-draw');
+  hideHint();
+}
+
+function restoreRoofOnMap(){
+  roofLayer.clearLayers();
+  if(ST.roofLatLngs.length<3)return;
+  roofLayer.addLayer(L.polygon(ST.roofLatLngs.map(p=>[p.lat,p.lng]),{color:'#F59E0B',fillColor:'#F59E0B',fillOpacity:0.22,weight:2}));
+}
+
+function clearRoof(){
+  roofLayer.clearLayers();ST.roofLatLngs=[];ST.roofAreaM2=0;
+  document.getElementById('btn-simulate').disabled=true;
+  document.getElementById('btn-clr-roof').style.display='none';
+  document.getElementById('roof-badge-run').style.display='none';
+  document.getElementById('roof-area-label').style.display='none';
+  document.getElementById('roof-count').textContent='';
+  setMapStatus('info','Roof cleared. Draw it again.');saveWork();
+}
+
+function clearAllMapLayers(){
+  roofLayer.clearLayers();treeLayer.clearLayers();bldLayer.clearLayers();
+  if(clientMarker){lmap.removeLayer(clientMarker);clientMarker=null;}
+}
+
+function removeMapTree(id){
+  const t=ST.mapTrees.find(x=>x.id===id);
+  if(t&&t.leafletLayer)treeLayer.removeLayer(t.leafletLayer);
+  ST.mapTrees=ST.mapTrees.filter(x=>x.id!==id);
+  updateMapSideLists();updateSimObsLists();updateObsSummary();saveWork();
+}
+function removeMapBld(id){
+  const b=ST.mapBuildings.find(x=>x.id===id);
+  if(b&&b.leafletLayer)bldLayer.removeLayer(b.leafletLayer);
+  ST.mapBuildings=ST.mapBuildings.filter(x=>x.id!==id);
+  updateMapSideLists();updateSimObsLists();updateObsSummary();saveWork();
+}
+
+function updateRoofUI(){
+  const a=ST.roofAreaM2;
+  const txt=a>=10000?(a/10000).toFixed(2)+' ha':Math.round(a)+' m²';
+  document.getElementById('roof-area-run').textContent=txt;
+  document.getElementById('roof-badge-run').style.display='flex';
+  document.getElementById('roof-count').textContent='✓';
+  document.getElementById('btn-clr-roof').style.display='';
+  const lbl=document.getElementById('roof-area-label');
+  lbl.textContent='✓ '+txt+' roof polygon saved';lbl.style.display='block';
+}
+
+function updateObsSummary(){
+  const t=ST.mapTrees.length,b=ST.mapBuildings.length;
+  document.getElementById('obs-summary').textContent=t||b?`${t} tree${t!==1?'s':''} · ${b} building${b!==1?'s':''} mapped`:'';
+}
+
+function updateMapSideLists(){
+  document.getElementById('tree-map-count').textContent=ST.mapTrees.length?'('+ST.mapTrees.length+')':'';
+  document.getElementById('bld-map-count').textContent=ST.mapBuildings.length?'('+ST.mapBuildings.length+')':'';
+  document.getElementById('tree-map-list').innerHTML=ST.mapTrees.map(t=>`<div class="layer-item"><span class="li-name">🌳 Tree ${t.id}</span><span class="li-h">${t.h}m</span><span class="li-del" onclick="removeMapTree(${t.id})">✕</span></div>`).join('')||'';
+  document.getElementById('bld-map-list').innerHTML=ST.mapBuildings.map(b=>`<div class="layer-item"><span class="li-name">🏢 ${esc(b.name)}</span><span class="li-h">${b.h}m</span><span class="li-del" onclick="removeMapBld(${b.id})">✕</span></div>`).join('')||'';
+}
+
+function setHint(msg){const el=document.getElementById('draw-hint-bar');el.textContent=msg;el.style.display='block';}
+function hideHint(){document.getElementById('draw-hint-bar').style.display='none';}
+function setMapStatus(type,msg){document.getElementById('map-stxt').textContent=msg;const d=document.getElementById('map-sdot');d.className='sdot'+(type==='ok'?' ok':type==='info'?' info':' warn');}
+function calcArea(lls){let a=0;const n=lls.length;for(let i=0;i<n;i++){const j=(i+1)%n;const y1=lls[i].lat*Math.PI/180*6371000,x1=lls[i].lng*Math.PI/180*6371000*Math.cos(lls[i].lat*Math.PI/180);const y2=lls[j].lat*Math.PI/180*6371000,x2=lls[j].lng*Math.PI/180*6371000*Math.cos(lls[j].lat*Math.PI/180);a+=x1*y2-x2*y1;}return Math.abs(a/2);}
+
+// ══════════════════════════════════════════════
+// ENTER SIMULATION
+// ══════════════════════════════════════════════
+function onEnterSim(){
+  ST.simReady=true;
+  document.getElementById('sim-empty').style.display='none';
+  if(ST.activeClient){
+    document.getElementById('ss-name').textContent=ST.activeClient['Full Name'];
+    document.getElementById('ss-loc').textContent=(ST.activeClient.Address||'')+' ('+ST.centroidLat.toFixed(4)+', '+ST.centroidLng.toFixed(4)+')';
+    const a=ST.roofAreaM2,txt=a>=10000?(a/10000).toFixed(2)+' ha':Math.round(a)+' m²';
+    document.getElementById('ss-roof-info').innerHTML=`<div style="display:flex;align-items:center;gap:5px;padding:4px 8px;background:var(--sun-l);border:1px solid rgba(245,158,11,.25);border-radius:5px;font-size:9px"><span style="font-weight:700;color:var(--sun)">🏠 ${txt}</span><span style="color:var(--muted)">roof</span></div>`;
+  }
+  document.getElementById('sl-lat').value=Math.abs(ST.centroidLat).toFixed(1);
+  updateSimObsLists();updateFutureList();updateControls();
+  requestAnimationFrame(()=>{resizeCvs();drawAll();});
+}
+
+function updateSimObsLists(){
+  document.getElementById('tc').textContent='('+ST.mapTrees.length+')';
+  document.getElementById('bc').textContent='('+ST.mapBuildings.length+')';
+  document.getElementById('tlist').innerHTML=ST.mapTrees.length
+    ?ST.mapTrees.map(t=>`<div class="iitem"><span class="nm">🌳 Tree ${t.id}</span><span class="ht">${t.h}m</span><span class="idel" onclick="removeMapTreeSim(${t.id})">✕</span></div>`).join('')
+    :'<div style="font-size:9px;color:var(--muted);padding:2px">None — add above or go to Map</div>';
+  document.getElementById('blist').innerHTML=ST.mapBuildings.length
+    ?ST.mapBuildings.map(b=>`<div class="iitem"><span class="nm">🏢 ${esc(b.name)}</span><span class="ht">${b.h}m</span><span class="idel" onclick="removeMapBldSim(${b.id})">✕</span></div>`).join('')
+    :'<div style="font-size:9px;color:var(--muted);padding:2px">None — draw above or go to Map</div>';
+}
+
+function updateFutureList(){
+  const all=[...ST.futureTrees.map(()=>`<div class="iitem"><span class="nm">🌳 Future tree</span><span class="ht">${+document.getElementById('sl-fth').value}m</span></div>`),...ST.futureBuildings.map(b=>`<div class="iitem"><span class="nm">🏢 ${esc(b.name)}</span><span class="ht">${b.h}m</span></div>`)];
+  document.getElementById('flist').innerHTML=all.join('')||'<div style="font-size:9px;color:var(--muted);padding:2px">None added</div>';
+}
+
+function addSimTree(){
+  const h=+document.getElementById('sl-sth').value;
+  const id=getNextMapId();
+  const offset=0.00015+Math.random()*0.0002,angle=Math.random()*Math.PI*2;
+  const lat=ST.centroidLat+Math.cos(angle)*offset,lng=ST.centroidLng+Math.sin(angle)*offset;
+  const layer=addTreeMarker(lat,lng,h,id);
+  ST.mapTrees.push({lat,lng,h,id,leafletLayer:layer});
+  updateSimObsLists();updateObsSummary();saveWork();drawAll();
+  toast('🌳 Tree added ('+h+'m) — go to Map step to reposition on satellite.');
+}
+
+function removeMapTreeSim(id){const t=ST.mapTrees.find(x=>x.id===id);if(t&&t.leafletLayer)treeLayer.removeLayer(t.leafletLayer);ST.mapTrees=ST.mapTrees.filter(x=>x.id!==id);updateSimObsLists();updateMapSideLists();updateObsSummary();saveWork();drawAll();}
+function removeMapBldSim(id){const b=ST.mapBuildings.find(x=>x.id===id);if(b&&b.leafletLayer)bldLayer.removeLayer(b.leafletLayer);ST.mapBuildings=ST.mapBuildings.filter(x=>x.id!==id);updateSimObsLists();updateMapSideLists();updateObsSummary();saveWork();drawAll();}
+function clearMapTrees(){ST.mapTrees.forEach(t=>{if(t.leafletLayer)treeLayer.removeLayer(t.leafletLayer);});ST.mapTrees=[];updateSimObsLists();updateMapSideLists();updateObsSummary();saveWork();drawAll();}
+function clearMapBlds(){ST.mapBuildings.forEach(b=>{if(b.leafletLayer)bldLayer.removeLayer(b.leafletLayer);});ST.mapBuildings=[];updateSimObsLists();updateMapSideLists();updateObsSummary();saveWork();drawAll();}
+
+// ══════════════════════════════════════════════
+// CONTROLS
+// ══════════════════════════════════════════════
+function updateControls(){
+  const sp=getSP(),th=Math.floor(ST.timeVal),tm=Math.round((ST.timeVal-th)*60);
+  document.getElementById('c-month').textContent=MONTHS[sp.month-1];
+  document.getElementById('c-time').textContent=th+':'+(tm<10?'0':'')+tm;
+  document.getElementById('c-lat').textContent=(+document.getElementById('sl-lat').value).toFixed(1)+'°';
+  document.getElementById('c-bh').textContent=document.getElementById('sl-bh').value+' m';
+  document.getElementById('c-fth').textContent=document.getElementById('sl-fth').value+' m';
+  document.getElementById('c-fobh').textContent=document.getElementById('sl-fobh').value+' m';
+  const dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  document.getElementById('st-alt').textContent=sp.alt>0?Math.round(sp.alt)+'°':'Below horizon';
+  document.getElementById('st-dir').textContent=sp.alt>0?dirs[Math.round(sp.az/22.5)%16]:'—';
+  document.getElementById('st-shad').textContent=sp.sm?sp.sm+'×h':'—';
+  document.getElementById('st-day').textContent=sp.dayHrs+' h';
+}
+['sl-month','sl-lat','sl-bh','sl-fth','sl-fobh'].forEach(id=>{document.getElementById(id).addEventListener('input',()=>{updateControls();drawAll();});});
+document.getElementById('sl-time').addEventListener('input',function(){ST.timeVal=+this.value;updateControls();drawAll();});
+document.getElementById('sl-sel-h').addEventListener('input',function(){
+  const v=+this.value;document.getElementById('obs-hv').textContent=v+' m';
+  if(ST.selectedId){
+    const fb=ST.futureBuildings.find(x=>x.id===ST.selectedId);if(fb){fb.h=v;saveWork();drawAll();return;}
+    const mb=ST.mapBuildings.find(x=>x.id===ST.selectedId);if(mb){mb.h=v;saveWork();drawAll();}
+  }
+});
+
+// ══════════════════════════════════════════════
+// CANVAS
+// ══════════════════════════════════════════════
+const cvA=document.getElementById('cv-aerial'),actx=cvA.getContext('2d');
+const cvG=document.getElementById('cv-ground'),gctx=cvG.getContext('2d');
+
+function resizeCvs(){
+  const dpr=window.devicePixelRatio||1;
+  const va=document.getElementById('view-a'),vg=document.getElementById('view-g');
+  cvA.width=va.offsetWidth*dpr;cvA.height=va.offsetHeight*dpr;cvA.style.width=va.offsetWidth+'px';cvA.style.height=va.offsetHeight+'px';
+  cvG.width=vg.offsetWidth*dpr;cvG.height=vg.offsetHeight*dpr;cvG.style.width=vg.offsetWidth+'px';cvG.style.height=vg.offsetHeight+'px';
+}
+
+// ══════════════════════════════════════════════
+// COORDINATE TRANSFORMS
+// ══════════════════════════════════════════════
+function getSceneTF(W,H,pad){
+  if(ST.roofLatLngs.length<3)return null;
+  const cx=ST.centroidLat,cy=ST.centroidLng,cosLat=Math.cos(toR(cx)),mPd=111320;
+  const allLat=[...ST.roofLatLngs,...ST.mapTrees,...ST.mapBuildings.flatMap(b=>b.latLngs)].map(p=>p.lat);
+  const allLng=[...ST.roofLatLngs,...ST.mapTrees,...ST.mapBuildings.flatMap(b=>b.latLngs)].map(p=>p.lng);
+  const allX=allLng.map(lng=>(lng-cy)*mPd*cosLat),allY=allLat.map(lat=>-(lat-cx)*mPd);
+  const spanX=Math.max(...allX)-Math.min(...allX),spanY=Math.max(...allY)-Math.min(...allY);
+  const span=Math.max(spanX,spanY,8);
+  const fitScale=Math.min(W-pad*2,H-pad*2)/span*0.72;
+  const cx2=(Math.min(...allX)+Math.max(...allX))/2,cy2=(Math.min(...allY)+Math.max(...allY))/2;
+  return{scale:fitScale,offX:W/2-cx2*fitScale,offY:H/2-cy2*fitScale,cx,cy,cosLat,mPd};
+}
+function w2s(lat,lng,tf){return[(lng-tf.cy)*tf.mPd*tf.cosLat*tf.scale+tf.offX,-(lat-tf.cx)*tf.mPd*tf.scale+tf.offY];}
+function bpt2s(pt,W,H,pad){return[pad+pt.fx*(W-pad*2),pad+pt.fy*(H-pad*2)];}
+
+// ══════════════════════════════════════════════
+// GEOMETRY
+// ══════════════════════════════════════════════
+function convexHull(pts){const s=pts.slice().sort((a,b)=>a[0]-b[0]||a[1]-b[1]);const cross=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);const lo=[],up=[];for(const p of s){while(lo.length>=2&&cross(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p);}for(const p of s.slice().reverse()){while(up.length>=2&&cross(up[up.length-2],up[up.length-1],p)<=0)up.pop();up.push(p);}return lo.slice(0,-1).concat(up.slice(0,-1));}
+function drawShadow(ctx,poly,svx,svy,alpha){if(!poly||poly.length<3)return;const hull=convexHull([...poly,...poly.map(([x,y])=>[x+svx,y+svy])]);if(hull.length<3)return;ctx.beginPath();ctx.moveTo(hull[0][0],hull[0][1]);hull.slice(1).forEach(p=>ctx.lineTo(p[0],p[1]));ctx.closePath();ctx.globalAlpha=alpha;ctx.fillStyle='#000';ctx.fill();ctx.globalAlpha=1;}
+function ptInPoly(px,py,pts){let inside=false;for(let i=0,j=pts.length-1;i<pts.length;j=i++){const [xi,yi]=pts[i],[xj,yj]=pts[j];if(((yi>py)!=(yj>py))&&(px<(xj-xi)*(py-yi)/(yj-yi)+xi))inside=!inside;}return inside;}
+function polyCenter(pts){return[pts.reduce((s,p)=>s+p[0],0)/pts.length,pts.reduce((s,p)=>s+p[1],0)/pts.length];}
+
+// ══════════════════════════════════════════════
+// AERIAL DRAW
+// ══════════════════════════════════════════════
+function drawAerial(ctx,W,H,sp,tf,pad){
+  ctx=ctx||actx;
+  const dpr=ctx===actx?(window.devicePixelRatio||1):1;
+  if(ctx===actx){ctx.save();ctx.scale(dpr,dpr);}
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#192a0f';
+  ctx.beginPath();if(ctx.roundRect)ctx.roundRect(pad,pad,W-pad*2,H-pad*2,10);else ctx.rect(pad,pad,W-pad*2,H-pad*2);ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,0.04)';ctx.lineWidth=0.5;
+  for(let i=1;i<12;i++){ctx.beginPath();ctx.moveTo(pad+i*(W-pad*2)/12,pad);ctx.lineTo(pad+i*(W-pad*2)/12,H-pad);ctx.stroke();ctx.beginPath();ctx.moveTo(pad,pad+i*(H-pad*2)/12);ctx.lineTo(W-pad,pad+i*(H-pad*2)/12);ctx.stroke();}
+
+  const bh=+document.getElementById('sl-bh').value;
+  const treeH=+document.getElementById('sl-fth').value;
+  let roofPoly=null;
+  if(tf&&ST.roofLatLngs.length>=3)roofPoly=ST.roofLatLngs.map(p=>w2s(p.lat,p.lng,tf));
+
+  if(sp.alt>0.5&&tf){
+    const azRad=toR(sp.az-180),ss=1/Math.tan(toR(Math.max(sp.alt,0.5)));
+    if(roofPoly){const sl=bh*ss*tf.scale*0.45;drawShadow(ctx,roofPoly,Math.sin(azRad)*sl,-Math.cos(azRad)*sl,0.42);}
+    ST.mapTrees.forEach(tree=>{
+      const [tx,ty]=w2s(tree.lat,tree.lng,tf);
+      const tr=Math.max(tf.scale*1.5,5);
+      const sl=tree.h*ss*tf.scale*0.45;
+      const tpoly=Array.from({length:14},(_,i)=>{const a=i/14*Math.PI*2;return[tx+Math.cos(a)*tr,ty+Math.sin(a)*tr];});
+      drawShadow(ctx,tpoly,Math.sin(azRad)*sl,-Math.cos(azRad)*sl,0.4);
+    });
+    ST.mapBuildings.forEach(bld=>{
+      const poly=bld.latLngs.map(p=>w2s(p.lat,p.lng,tf));
+      const sl=bld.h*ss*tf.scale*0.45;
+      drawShadow(ctx,poly,Math.sin(azRad)*sl,-Math.cos(azRad)*sl,0.44);
+    });
+    ST.futureTrees.forEach(tree=>{
+      const tx=pad+tree.fx*(W-pad*2),ty=pad+tree.fy*(H-pad*2);
+      const tr=tree.r*Math.min(W,H),sl=treeH*ss*3.8;
+      const tpoly=Array.from({length:14},(_,i)=>{const a=i/14*Math.PI*2;return[tx+Math.cos(a)*tr,ty+Math.sin(a)*tr];});
+      drawShadow(ctx,tpoly,Math.sin(azRad)*sl,-Math.cos(azRad)*sl,0.35);
+    });
+    ST.futureBuildings.forEach(bld=>{
+      const poly=bld.pts.map(p=>bpt2s(p,W,H,pad));
+      const sl=bld.h*ss*3.8;
+      drawShadow(ctx,poly,Math.sin(azRad)*sl,-Math.cos(azRad)*sl,0.38);
+    });
+  }
+
+  if(sp.alt>0.5&&roofPoly){ctx.beginPath();ctx.moveTo(roofPoly[0][0],roofPoly[0][1]);roofPoly.slice(1).forEach(p=>ctx.lineTo(p[0],p[1]));ctx.closePath();ctx.fillStyle='rgba(245,220,100,0.14)';ctx.fill();}
+
+  ST.mapTrees.forEach(tree=>{
+    if(!tf)return;
+    const [tx,ty]=w2s(tree.lat,tree.lng,tf);
+    const tr=Math.max(tf.scale*1.5,5);
+    ctx.beginPath();ctx.arc(tx,ty,tr*1.15,0,Math.PI*2);ctx.fillStyle='#0d3a0a';ctx.fill();
+    ctx.beginPath();ctx.arc(tx,ty,tr,0,Math.PI*2);ctx.fillStyle='#2d6a1a';ctx.fill();
+    ctx.beginPath();ctx.arc(tx-tr*.25,ty-tr*.2,tr*.55,0,Math.PI*2);ctx.fillStyle='#4a9030';ctx.fill();
+    ctx.font='500 8px sans-serif';ctx.fillStyle='#a0e080';ctx.textAlign='center';ctx.fillText(tree.h+'m',tx,ty+tr+9);
+  });
+
+  ST.mapBuildings.forEach(bld=>{
+    if(!tf)return;
+    const poly=bld.latLngs.map(p=>w2s(p.lat,p.lng,tf));
+    const isSel=ST.selectedId===bld.id;if(poly.length<3)return;
+    ctx.beginPath();ctx.moveTo(poly[0][0],poly[0][1]);poly.slice(1).forEach(p=>ctx.lineTo(p[0],p[1]));ctx.closePath();
+    ctx.fillStyle=isSel?'rgba(139,92,246,0.28)':'rgba(100,150,220,0.18)';ctx.fill();
+    ctx.strokeStyle=isSel?'#8B5CF6':'#6096dc';ctx.lineWidth=isSel?2:1.5;ctx.stroke();
+    const [pcx,pcy]=polyCenter(poly);
+    ctx.font='500 9px sans-serif';ctx.fillStyle=isSel?'#c4b5fd':'#93b4e8';ctx.textAlign='center';
+    ctx.fillText(bld.h+'m',pcx,pcy+4);ctx.fillText(bld.name,pcx,pcy-5);
+    if(isSel){poly.forEach(([px,py])=>{ctx.beginPath();ctx.arc(px,py,5,0,Math.PI*2);ctx.fillStyle='#8B5CF6';ctx.fill();});}
+  });
+
+  ST.futureTrees.forEach(tree=>{
+    const tx=pad+tree.fx*(W-pad*2),ty=pad+tree.fy*(H-pad*2),tr=tree.r*Math.min(W,H);
+    ctx.beginPath();ctx.arc(tx,ty,tr,0,Math.PI*2);ctx.fillStyle='rgba(34,197,94,0.3)';ctx.fill();
+    ctx.strokeStyle='#22C55E';ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);
+    ctx.font='500 8px sans-serif';ctx.fillStyle='#86efac';ctx.textAlign='center';ctx.fillText('future',tx,ty+tr+8);
+  });
+
+  ST.futureBuildings.forEach(bld=>{
+    const poly=bld.pts.map(p=>bpt2s(p,W,H,pad));
+    const isSel=ST.selectedId===bld.id;if(poly.length<3)return;
+    ctx.beginPath();ctx.moveTo(poly[0][0],poly[0][1]);poly.slice(1).forEach(p=>ctx.lineTo(p[0],p[1]));ctx.closePath();
+    ctx.fillStyle=isSel?'rgba(251,191,36,0.25)':'rgba(251,191,36,0.15)';ctx.fill();
+    ctx.strokeStyle=isSel?'#FBBF24':'rgba(251,191,36,0.7)';ctx.lineWidth=isSel?2:1.2;ctx.setLineDash([4,3]);ctx.stroke();ctx.setLineDash([]);
+    const [pcx,pcy]=polyCenter(poly);
+    ctx.font='500 9px sans-serif';ctx.fillStyle='#FCD34D';ctx.textAlign='center';
+    ctx.fillText(bld.h+'m',pcx,pcy+4);ctx.fillText('future',pcx,pcy-5);
+    if(isSel){poly.forEach(([px,py])=>{ctx.beginPath();ctx.arc(px,py,4,0,Math.PI*2);ctx.fillStyle='#FBBF24';ctx.fill();});}
+  });
+
+  if(roofPoly&&roofPoly.length>=3){
+    ctx.beginPath();ctx.moveTo(roofPoly[0][0],roofPoly[0][1]);roofPoly.slice(1).forEach(p=>ctx.lineTo(p[0],p[1]));ctx.closePath();
+    ctx.fillStyle='rgba(200,150,110,0.75)';ctx.fill();
+    ctx.strokeStyle='#F59E0B';ctx.lineWidth=1.5;ctx.setLineDash([]);ctx.stroke();
+    if(tf){const [cx2,cy2]=w2s(ST.centroidLat,ST.centroidLng,tf);ctx.beginPath();ctx.arc(cx2,cy2,4,0,Math.PI*2);ctx.fillStyle='#F59E0B';ctx.fill();}
+  }
+
+  if(ST.drawingFBld&&ST.drawFPts.length>0){
+    const spts=ST.drawFPts.map(p=>bpt2s(p,W,H,pad));
+    ctx.beginPath();ctx.moveTo(spts[0][0],spts[0][1]);spts.slice(1).forEach(p=>ctx.lineTo(p[0],p[1]));
+    ctx.strokeStyle='rgba(251,191,36,0.8)';ctx.lineWidth=1.5;ctx.setLineDash([5,3]);ctx.stroke();ctx.setLineDash([]);
+    spts.forEach(([px,py])=>{ctx.beginPath();ctx.arc(px,py,4,0,Math.PI*2);ctx.fillStyle='#FBBF24';ctx.fill();});
+  }
+
+  if(sp.alt>0.5){
+    const ax2=pad+44,ay2=pad+44,al=28;
+    const ax1=ax2-Math.sin(toR(sp.az-180))*al,ay1=ay2+Math.cos(toR(sp.az-180))*al;
+    ctx.beginPath();ctx.moveTo(ax1,ay1);ctx.lineTo(ax2,ay2);ctx.strokeStyle='#FBBF24';ctx.lineWidth=2;ctx.stroke();
+    const ha=Math.atan2(ay2-ay1,ax2-ax1);
+    ctx.beginPath();ctx.moveTo(ax2,ay2);ctx.lineTo(ax2-6*Math.cos(ha-.4),ay2-6*Math.sin(ha-.4));ctx.lineTo(ax2-6*Math.cos(ha+.4),ay2-6*Math.sin(ha+.4));ctx.closePath();ctx.fillStyle='#FBBF24';ctx.fill();
+    ctx.font='500 9px sans-serif';ctx.fillStyle='#FBBF24';ctx.textAlign='center';ctx.fillText('sun',ax2,ay2+12);
+  }
+
+  ctx.font='11px sans-serif';ctx.fillStyle='rgba(255,255,255,0.25)';ctx.textAlign='center';
+  ctx.fillText('N',W/2,pad-6);ctx.fillText('S',W/2,H-pad+14);ctx.fillText('W',pad-10,H/2+4);ctx.fillText('E',W-pad+10,H/2+4);
+  ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=1;
+  ctx.beginPath();if(ctx.roundRect)ctx.roundRect(pad,pad,W-pad*2,H-pad*2,10);else ctx.rect(pad,pad,W-pad*2,H-pad*2);ctx.stroke();
+
+  // Legend
+  const legItems=[['#c8966e','Roof'],['#2d6a1a','Real tree'],['#8B5CF6','Real bldg'],['rgba(34,197,94,0.5)','Planned tree'],['rgba(251,191,36,0.5)','Planned bldg']];
+  let legX=pad+8,legY=H-pad-6;
+  legItems.forEach(([col,lbl])=>{
+    ctx.fillStyle=col;ctx.fillRect(legX,legY-8,10,8);
+    ctx.font='9px sans-serif';ctx.fillStyle='rgba(255,255,255,0.45)';ctx.textAlign='left';ctx.fillText(lbl,legX+13,legY);
+    legX+=ctx.measureText(lbl).width+26;
+  });
+
+  if(ctx===actx)ctx.restore();
+}
+
+// Default aerial draw wraps the full version
+function _drawAerial(){
+  if(!ST.simReady)return;
+  const dpr=window.devicePixelRatio||1,W=cvA.width/dpr,H=cvA.height/dpr,pad=36;
+  const sp=getSP(),tf=getSceneTF(W,H,pad);
+  drawAerial(actx,W,H,sp,tf,pad);
+  drawCompass(sp.az);
+}
+
+function drawCompass(az,ctx,cx,cy,r){
+  if(!ctx){
+    const cc=document.getElementById('compass-cv'),c2=cc.getContext('2d'),dpr=window.devicePixelRatio||1;
+    cc.width=52*dpr;cc.height=52*dpr;c2.scale(dpr,dpr);
+    cx=26;cy=26;r=22;ctx=c2;
+  }
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fillStyle='rgba(11,17,32,0.88)';ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,0.14)';ctx.lineWidth=0.5;ctx.stroke();
+  ctx.font='7px sans-serif';ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,0.38)';
+  ctx.fillText('N',cx,cy-r+8);ctx.fillText('S',cx,cy+r-2);ctx.fillText('E',cx+r-3,cy+3);ctx.fillText('W',cx-r+3,cy+3);
+  const a=az>0?az:180,sx=cx+Math.sin(toR(a))*(r-8),sy=cy-Math.cos(toR(a))*(r-8);
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(sx,sy);ctx.strokeStyle='#FBBF24';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.beginPath();ctx.arc(sx,sy,2.5,0,Math.PI*2);ctx.fillStyle='#FBBF24';ctx.fill();
+}
+
+// ══════════════════════════════════════════════
+// GROUND DRAW
+// ══════════════════════════════════════════════
+function _drawGround(){
+  if(!ST.simReady)return;
+  const dpr=window.devicePixelRatio||1,W=cvG.width/dpr,H=cvG.height/dpr;
+  gctx.save();gctx.scale(dpr,dpr);gctx.clearRect(0,0,W,H);
+  const sp=getSP(),bh=+document.getElementById('sl-bh').value;
+  drawGroundScene(gctx,W,H,sp,bh);
+  gctx.restore();
+}
+
+function drawGroundScene(ctx,W,H,sp,bh){
+  const SCALE=22,groundY=H*.65;
+  ctx.fillStyle=sp.alt>0?'#1a3a5c':'#060d1a';ctx.fillRect(0,0,W,H*.65);
+  ctx.fillStyle=sp.alt>0?'#2a5a8c':'#0f1a2e';ctx.fillRect(0,H*.5,W,H*.15);
+  ctx.fillStyle='#2d5a1a';ctx.fillRect(0,H*.65,W,H*.2);ctx.fillStyle='#7a5230';ctx.fillRect(0,H*.85,W,H*.15);
+
+  let bWidth=12;
+  if(ST.roofLatLngs.length>=3){
+    const xs=ST.roofLatLngs.map(p=>p.lng),ys=ST.roofLatLngs.map(p=>p.lat);
+    const wM=(Math.max(...xs)-Math.min(...xs))*111320*Math.cos(toR(ST.centroidLat));
+    const hM=(Math.max(...ys)-Math.min(...ys))*111320;
+    bWidth=Math.max(wM,hM);
+  }
+  const bwPx=Math.min(bWidth*SCALE*.45,W*.22),obstX=W*.3,obstTop=groundY-bh*SCALE;
+  ctx.fillStyle='#8a7060';ctx.fillRect(obstX-bwPx/2,obstTop,bwPx,groundY-obstTop);
+  ctx.beginPath();ctx.moveTo(obstX-bwPx/2-8,obstTop);ctx.lineTo(obstX+bwPx/2+8,obstTop);ctx.lineTo(obstX,obstTop-bwPx*.22);ctx.closePath();ctx.fillStyle='#b08060';ctx.fill();
+
+  const allBldH=[...ST.mapBuildings.map(b=>b.h),...ST.futureBuildings.map(b=>b.h)];
+  const maxObsH=allBldH.length?Math.max(...allBldH):0;
+  if(maxObsH>0){
+    const obwPx=Math.min(W*.18,maxObsH*SCALE*.6),obTop=groundY-maxObsH*SCALE,rightX=W*.72;
+    ctx.fillStyle='#4a5a6a';ctx.fillRect(rightX-obwPx/2,obTop,obwPx,groundY-obTop);
+    ctx.fillStyle='#5a6a7a';ctx.fillRect(rightX-obwPx/2,obTop,obwPx,5);
+    ctx.font='9px sans-serif';ctx.fillStyle='rgba(255,255,255,0.35)';ctx.textAlign='center';
+    ctx.fillText(maxObsH+'m obstruction',rightX,obTop-6);
+  }
+
+  let pct=0;
+  if(sp.alt>0.5){
+    const tanA=Math.tan(toR(sp.alt)),shadowLen=bh/tanA*SCALE,shadowEnd=obstX+bwPx/2+shadowLen;
+    ctx.fillStyle='rgba(0,0,50,0.32)';ctx.fillRect(obstX+bwPx/2,groundY-2,Math.min(shadowLen,W-obstX-bwPx/2),4);
+    if(shadowEnd<W-30){ctx.fillStyle='rgba(255,220,80,0.28)';ctx.fillRect(shadowEnd,groundY-2,W-30-shadowEnd,4);}
+    pct=Math.round(Math.max(0,W-30-shadowEnd)/Math.max(1,W-obstX-bwPx/2-30)*100);
+    ctx.font='500 11px sans-serif';ctx.fillStyle='#FBBF24';ctx.textAlign='center';ctx.fillText(pct+'% in direct sun',W*.6,groundY-10);
+    const sAngle=toR(sp.alt),sunX=obstX-95*Math.cos(sAngle),sunY=obstTop-95*Math.sin(sAngle);
+    ctx.beginPath();ctx.arc(sunX,sunY,14,0,Math.PI*2);ctx.fillStyle='#FCD34D';ctx.fill();
+    ctx.beginPath();ctx.moveTo(sunX,sunY);ctx.lineTo(obstX-bwPx/2,obstTop);ctx.strokeStyle='rgba(252,211,77,0.22)';ctx.lineWidth=1;ctx.stroke();
+    ctx.font='9px sans-serif';ctx.fillStyle='#FBBF24';ctx.textAlign='left';ctx.fillText(Math.round(sp.alt)+'° alt',sunX+18,sunY+4);
+  } else {
+    ctx.beginPath();ctx.arc(W*.12,groundY+36,12,0,Math.PI*2);ctx.fillStyle='#b8ccee';ctx.fill();
+    ctx.font='11px sans-serif';ctx.fillStyle='#64748b';ctx.textAlign='center';ctx.fillText('Below horizon — no direct sunlight',W/2,groundY-10);
+  }
+  ctx.fillStyle='rgba(255,255,255,0.2)';ctx.font='9px sans-serif';ctx.textAlign='right';ctx.fillText(bh+'m',obstX-bwPx/2-4,(obstTop+groundY)/2+4);
+  const dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  ctx.font='9px sans-serif';ctx.fillStyle='rgba(255,255,255,0.2)';ctx.textAlign='center';ctx.fillText('Sun from '+(sp.alt>0?dirs[Math.round(sp.az/22.5)%16]:'—'),W/2,H-7);
+  return pct;
+}
+
+// ══════════════════════════════════════════════
+// CANVAS SCREENSHOT CAPTURE
+// ══════════════════════════════════════════════
+// Renders a simulation frame to an offscreen canvas and returns dataURL
+function captureFrame(month, hour, view){
+  return new Promise(resolve=>{
+    const W=800,H=view==='aerial'?400:300,pad=36;
+    const oc=document.createElement('canvas');oc.width=W;oc.height=H;
+    const octx=oc.getContext('2d');
+    const lat=+document.getElementById('sl-lat').value;
+    const bh=+document.getElementById('sl-bh').value;
+    const dec=DECL[month-1];
+    const alt=sAlt(lat,dec,hour);
+    const az=sAz(lat,dec,hour);
+    const rise=sunriseH(lat,dec),set=rise!=null?24-rise:null;
+    const sp={month:month+1,lat,t:hour,dec,alt,az,
+      dayHrs:rise!=null&&set!=null?(set-rise).toFixed(1):'0',
+      sm:alt>1?(1/Math.tan(toR(alt))).toFixed(1):null};
+
+    if(view==='aerial'){
+      const tf=getSceneTF(W,H,pad);
+      drawAerial(octx,W,H,sp,tf,pad);
+      // Draw compass on the captured frame
+      drawCompass(az,octx,W-36,36,22);
+    } else {
+      drawGroundScene(octx,W,H,sp,+bh);
+    }
+    resolve(oc.toDataURL('image/png'));
+  });
+}
+
+// ══════════════════════════════════════════════
+// MAIN ASSESSMENT RUNNER
+// ══════════════════════════════════════════════
+function setProgress(pct,step){
+  document.getElementById('prog-bar').style.width=pct+'%';
+  document.getElementById('prog-step').textContent=step;
+}
+
+async function runAssessment(){
+  if(!ST.activeClient){toast('No client loaded.');return;}
+  if(ST.roofLatLngs.length<3){toast('Roof polygon required before generating report.');return;}
+
+  // ── Open the report window IMMEDIATELY before any await ──
+  // Browsers only allow window.open() from a direct user gesture.
+  // Any await after the click breaks that trust chain and triggers popup blocking.
+  // We open the window now with a loading screen, then write the real content when ready.
+  const reportWin = window.open('','_blank');
+  if(!reportWin){
+    toast('⚠ Popup blocked — please allow popups for this page and try again.');
+    return;
+  }
+  reportWin.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>Generating report…</title>
+    <style>body{margin:0;background:#0B1120;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#F1F5F9;flex-direction:column;gap:14px}
+    .spinner{width:40px;height:40px;border:3px solid rgba(245,158,11,0.2);border-top-color:#F59E0B;border-radius:50%;animation:spin 0.8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}</style></head>
+    <body><div class="spinner"></div><div>Building your solar assessment report…</div>
+    <div style="font-size:0.8rem;color:#64748B">This window will update automatically</div></body></html>`);
+  reportWin.document.close();
+
+  // Show progress modal
+  const modal=document.getElementById('progress-modal');
+  modal.classList.add('show');
+  document.getElementById('prog-title').textContent='Running Assessment…';
+  document.getElementById('prog-sub').textContent='Computing sun path for all 288 scenarios';
+  setProgress(0,'Starting…');
+
+  await new Promise(r=>setTimeout(r,80));
+
+  const lat=+document.getElementById('sl-lat').value;
+  const bh=+document.getElementById('sl-bh').value;
+
+  // ── STEP 1: Compute shading matrix ──
+  setProgress(10,'Computing 12-month × 24-hour shading matrix…');
+  await new Promise(r=>setTimeout(r,50));
+  const{matrix,hours}=computeMatrix(lat,bh);
+
+  // ── STEP 2: Peak sun hours ──
+  setProgress(25,'Calculating monthly peak sun hours…');
+  await new Promise(r=>setTimeout(r,30));
+  const psh=computePeakSunHours(matrix,lat);
+
+  // ── STEP 3: Key moments ──
+  setProgress(35,'Identifying key solar moments…');
+  await new Promise(r=>setTimeout(r,30));
+  const keyMoments=findKeyMoments(matrix,lat,ST.centroidLng);
+
+  // ── STEP 4: Obstruction analysis ──
+  setProgress(45,'Analysing obstruction impacts…');
+  await new Promise(r=>setTimeout(r,30));
+  const findings=analyseObstructions(lat,ST.centroidLng,matrix);
+
+  // ── STEP 5: Recommendations ──
+  setProgress(52,'Generating recommendations…');
+  await new Promise(r=>setTimeout(r,30));
+  const recs=generateRecommendations(psh,matrix,lat,ST.centroidLng,ST.roofAreaM2,bh,ST.activeClient);
+
+  // ── STEP 6: Capture screenshots ──
+  setProgress(58,'Capturing aerial screenshots…');
+  document.getElementById('prog-sub').textContent='Rendering 6 key simulation frames';
+  await new Promise(r=>setTimeout(r,30));
+
+  const screenshots={};
+  // Aerial: best, worst, morning, afternoon
+  for(let i=0;i<keyMoments.length;i++){
+    const km=keyMoments[i];
+    setProgress(58+i*6,'Capturing: '+km.label);
+    screenshots['aerial_'+i]=await captureFrame(km.month,km.hour,'aerial');
+    await new Promise(r=>setTimeout(r,20));
+  }
+  // Ground: best and worst
+  setProgress(83,'Capturing ground view — peak sun');
+  screenshots['ground_best']=await captureFrame(keyMoments[0].month,keyMoments[0].hour,'ground');
+  await new Promise(r=>setTimeout(r,20));
+  setProgress(88,'Capturing ground view — worst case');
+  screenshots['ground_worst']=await captureFrame(keyMoments[1].month,keyMoments[1].hour,'ground');
+  await new Promise(r=>setTimeout(r,20));
+
+  // ── STEP 7: Save to registry ──
+  setProgress(91,'Saving assessment data to Google Sheets…');
+  document.getElementById('prog-sub').textContent='Step 1 of 2 — Writing assessment row to registry';
+  await new Promise(r=>setTimeout(r,50));
+
+  const reportId='SSA-'+Date.now().toString(36).toUpperCase();
+  const now=new Date();
+
+  // ── Build the full assessment payload matching Apps Script column definitions ──
+  const assessmentData={
+    action:            'saveAssessment',
+    // Identifiers
+    'Report ID':       reportId,
+    'Assessment Date': now.toLocaleDateString('en-GB'),
+    'Assessment Time': now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
+    // Client — pulled directly from registry record
+    'Client Name':     ST.activeClient['Full Name']||'',
+    'Client Phone':    ST.activeClient.Phone||'',
+    'Client Email':    ST.activeClient.Email||'',
+    'Client State':    ST.activeClient.State||'',
+    'Client Address':  ST.activeClient.Address||'',
+    'Property Type':   ST.activeClient['Property Type']||'',
+    'Occupants':       ST.activeClient.Occupants||'',
+    'Meter Type':      ST.activeClient['Meter Type']||'',
+    'Distribution Band': ST.activeClient['Distribution Band']||'',
+    'Monthly Consumption Value': ST.activeClient['Avg Consumption Value']||'',
+    'Monthly Consumption Unit':  ST.activeClient['Avg Consumption Unit']||'naira',
+    'Coverage Goal %': ST.activeClient['Coverage Level']||'',
+    // Site geometry
+    'Latitude':        ST.centroidLat,
+    'Longitude':       ST.centroidLng,
+    'Is Nigeria':      isNigeria(ST.centroidLat,ST.centroidLng)?'Yes':'No',
+    'Roof Area M2':    ST.roofAreaM2.toFixed(1),
+    'Building Height': bh,
+    // Obstruction counts
+    'Tree Count':      ST.mapTrees.length,
+    'Building Count':  ST.mapBuildings.length,
+    // Computed solar data — all from the real simulation
+    'Avg Peak Sun Hours': +(psh.reduce((a,b)=>a+b,0)/12).toFixed(2),
+    'Best Month PSH':     Math.max(...psh),
+    'Worst Month PSH':    Math.min(...psh),
+    // Key moments season labels
+    'Key Moments JSON':   JSON.stringify(keyMoments.map(km=>({
+      label:km.label, month:km.month, hour:km.hour,
+      pct:km.pct, season:km.season
+    }))),
+    // Geometry JSON blobs
+    'Roof Polygon JSON':      JSON.stringify(ST.roofLatLngs),
+    'Trees JSON':             JSON.stringify(ST.mapTrees.map(t=>({lat:t.lat,lng:t.lng,h:t.h,id:t.id}))),
+    'Buildings JSON':         JSON.stringify(ST.mapBuildings.map(b=>({latLngs:b.latLngs,h:b.h,name:b.name}))),
+    'Future Trees JSON':      JSON.stringify(ST.futureTrees),
+    'Future Buildings JSON':  JSON.stringify(ST.futureBuildings.map(b=>({pts:b.pts,h:b.h,name:b.name}))),
+    // Full computed data
+    'PSH JSON':               JSON.stringify(psh),
+    'Shading Matrix JSON':    JSON.stringify(matrix)
+  };
+
+  // ── POST 1: Save assessment row ──
+  let saveOk=false, saveError='';
+  try {
+    const saveResp = await fetch(SAVE_URL, {
+      method:'POST',
+      mode:'no-cors',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:new URLSearchParams(assessmentData).toString()
+    });
+    // no-cors returns opaque — assume success if no throw
+    saveOk=true;
+    setProgress(94,'Assessment data saved ✓');
+  } catch(e){
+    saveError=e.toString();
+    console.warn('Assessment save failed:',e);
+  }
+
+  // ── POST 2: Save screenshots to Drive ──
+  let screenshotsSaved=0, screenshotsError='';
+  if(saveOk){
+    setProgress(95,'Uploading screenshots to Drive…');
+    document.getElementById('prog-sub').textContent='Saving 6 simulation images to Google Drive';
+    await new Promise(r=>setTimeout(r,30));
+    try {
+      // Build screenshot payload — include base64 PNG + metadata for each frame
+      const screenshotData = {
+        action:       'saveScreenshots',
+        'Report ID':  reportId,
+        'Client Phone': ST.activeClient.Phone||'',
+        'Client Name':  ST.activeClient['Full Name']||''
+      };
+      // Add each frame image + its metadata
+      const frameKeys = ['aerial_0','aerial_1','aerial_2','aerial_3','ground_best','ground_worst'];
+      frameKeys.forEach((key, i) => {
+        if(screenshots[key]) {
+          screenshotData[key] = screenshots[key]; // base64 PNG dataURL
+          const km = i < 4 ? keyMoments[i] : keyMoments[i===4?0:1];
+          screenshotData[key+'_month']  = km ? MONTHS[km.month] : '';
+          screenshotData[key+'_hour']   = km ? km.hour : '';
+          screenshotData[key+'_season'] = km ? km.season : '';
+          screenshotData[key+'_pct']    = km ? km.pct : '';
+          screenshotData[key+'_alt']    = km
+            ? Math.round(sAlt(+document.getElementById('sl-lat').value, DECL[km.month], km.hour))
+            : '';
+        }
+      });
+
+      await fetch(SAVE_URL, {
+        method:'POST',
+        mode:'no-cors',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        // Screenshots are large — send as JSON string to avoid URL encoding issues
+        body: new URLSearchParams({
+          action: 'saveScreenshots',
+          payload: JSON.stringify(screenshotData)
+        }).toString()
+      });
+      screenshotsSaved = 6;
+      setProgress(97,'Screenshots uploaded ✓');
+    } catch(e) {
+      screenshotsError = e.toString();
+      console.warn('Screenshot save failed:',e);
+    }
+  }
+
+  // ── POST 3: Save report HTML to Drive ──
+  setProgress(98,'Saving report to Drive…');
+  document.getElementById('prog-sub').textContent='Step 3 of 3 — Storing report HTML in Google Drive';
+  await new Promise(r=>setTimeout(r,30));
+
+  // ── Build ST.assessment FIRST — buildReportHtml reads from this ──
+  ST.assessment={
+    reportId, matrix, hours, psh, keyMoments, findings, recs, screenshots,
+    lat: ST.centroidLat,
+    lng: ST.centroidLng,
+    bh, saveOk, screenshotsSaved,
+    date:now.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}),
+    time:now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
+    nigeria:isNigeria(ST.centroidLat,ST.centroidLng)
+  };
+
+  // Now build the report HTML — ST.assessment is fully populated
+  const reportHtml = buildReportHtml(ST.assessment);
+  let reportUrl = '';
+
+  try {
+    await fetch(SAVE_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {'Content-Type':'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({
+        action:        'saveReport',
+        'Report ID':   reportId,
+        'Client Phone':ST.activeClient.Phone||'',
+        'Client Name': ST.activeClient['Full Name']||'',
+        html:          reportHtml
+      }).toString()
+    });
+    setProgress(99,'Report stored ✓');
+  } catch(e) {
+    console.warn('Report Drive save failed:',e);
+  }
+
+  setProgress(100,'Done!');
+  await new Promise(r=>setTimeout(r,300));
+  modal.classList.remove('show');
+
+  // Show "View Report" button
+  document.getElementById('btn-view-report').style.display='';
+
+  // Write report into the already-open window
+  reportWin.document.open();
+  reportWin.document.write(reportHtml);
+  reportWin.document.close();
+  reportWin.focus();
+
+  const saveMsg = saveOk
+    ? (screenshotsSaved>0 ? 'Assessment + '+screenshotsSaved+' images saved · ' : 'Assessment saved · ')
+    : 'Save failed — report still generated · ';
+  toast('✓ '+saveMsg+reportId);
+}
+
+// ══════════════════════════════════════════════
+// REPORT GENERATOR
+// ══════════════════════════════════════════════
+// Build report HTML string — pure function, no side effects
+function buildReportHtml(a){
+  return _buildReportHtmlInternal(a);
+}
+
+// View cached report — no re-save, no re-compute
+function viewReport(){
+  if(!ST.assessment){ toast('No report generated yet — click "Save & Report" first.'); return; }
+  const rw = window.open('','_blank');
+  if(!rw){ toast('⚠ Popup blocked — allow popups and try again.'); return; }
+  generateReport(ST.assessment, rw);
+}
+
+function generateReport(a, targetWin){
+  const html = _buildReportHtmlInternal(a);
+  targetWin.document.open();
+  targetWin.document.write(html);
+  targetWin.document.close();
+  targetWin.focus();
+}
+
+function _buildReportHtmlInternal(a){
+  const c=ST.activeClient;
+  const ng=a.nigeria;
+  const MONTHS_FULL=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const avgPsh=+(a.psh.reduce((s,v)=>s+v,0)/12).toFixed(1);
+  const peakPsh=Math.max(...a.psh),worstPsh=Math.min(...a.psh);
+  const peakMonthIdx=a.psh.indexOf(peakPsh);
+  const worstMonthIdx=a.psh.indexOf(worstPsh);
+  const usableArea=+(ST.roofAreaM2*0.74).toFixed(1);
+
+  // Build shading matrix colour cells
+  function shadeCell(v){
+    if(v===0)return'background:#0d1f38;color:#5a9abf';
+    if(v<20)return'background:#1a3a5c;color:#6ab0d4';
+    if(v<35)return'background:#1e4a28;color:#6abf82';
+    if(v<50)return'background:#2d6a3a;color:#86d49a';
+    if(v<65)return'background:#3d7a4a;color:#9ee0ae';
+    if(v<75)return'background:#5a9a5a;color:#c4f0c8';
+    if(v<85)return'background:#7ab870;color:#d8f8d4';
+    if(v<92)return'background:#a8c840;color:#eef8c0';
+    if(v<96)return'background:#c8c040;color:#f5f5c0';
+    return'background:#d8a030;color:#f8e8a0';
+  }
+
+  function pshBarCol(v){
+    if(v>=6.5)return'#0D9488';
+    if(v>=5.5)return'#22C55E';
+    if(v>=4.5)return'#F59E0B';
+    return'#EF4444';
+  }
+
+  const maxPsh=Math.max(...a.psh);
+  const hourLabels=['05','06','07','08','09','10','11','12','13','14','15','16','17','18','19','20','21','22','23'];
+
+  // Finding HTML
+  const findingHTML=a.findings.map(f=>`
+    <div style="display:flex;gap:12px;padding:13px 16px;border-radius:8px;margin-bottom:9px;border:1px solid;
+      ${f.type==='positive'?'background:#e8f5ee;border-color:#a7f3d0':f.type==='critical'?'background:#fdecea;border-color:#fca5a5':'background:#fffbeb;border-color:#fde68a'}">
+      <div style="font-size:1.1rem;flex-shrink:0;margin-top:2px">${f.type==='positive'?'✅':f.type==='critical'?'⚠️':'🔶'}</div>
+      <div>
+        <div style="font-weight:700;font-size:.88rem;margin-bottom:3px;color:${f.type==='positive'?'#1a7a4a':f.type==='critical'?'#c0392b':'#b45309'}">${f.title}</div>
+        <div style="font-size:.8rem;color:#475569;line-height:1.55">${f.body}</div>
+      </div>
+    </div>`).join('');
+
+  // Recommendation HTML
+  const recHTML=a.recs.map(r=>`
+    <div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start">
+      <div style="width:20px;height:20px;border-radius:50%;background:#E8880A;color:#000;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">${r.num}</div>
+      <div style="font-size:.82rem;color:rgba(255,255,255,0.7);line-height:1.55">${r.text}</div>
+    </div>`).join('');
+
+  // Key moment screenshot panels
+  const momentLabels=[
+    `${MONTHS_FULL[a.keyMoments[0].month]} · ${a.keyMoments[0].hour}:00 · ${a.keyMoments[0].season} — Best sun`,
+    `${MONTHS_FULL[a.keyMoments[1].month]} · ${a.keyMoments[1].hour}:00 · ${a.keyMoments[1].season} — Worst case`,
+    `${MONTHS_FULL[a.keyMoments[2].month]} · ${a.keyMoments[2].hour}:00 · Morning shadow`,
+    `${MONTHS_FULL[a.keyMoments[3].month]} · ${a.keyMoments[3].hour}:00 · Afternoon peak`
+  ];
+
+  const aerialPairs=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px">
+      ${[0,1].map(i=>`
+        <div>
+          <div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#8896a5;margin-bottom:6px;display:flex;align-items:center;gap:6px">
+            <span style="width:3px;height:12px;border-radius:2px;background:#E8880A;display:inline-block"></span>${momentLabels[i]}
+          </div>
+          <div style="border-radius:8px;overflow:hidden;border:1px solid #E2E8F0">
+            <img src="${a.screenshots['aerial_'+i]}" style="width:100%;display:block">
+            <div style="padding:6px 12px;background:#F7F9FC;font-size:10px;color:#475569;display:flex;justify-content:space-between">
+              <span>Aerial · ${MONTHS_FULL[a.keyMoments[i].month]} noon</span>
+              <span style="font-weight:700;color:${i===0?'#1a7a4a':'#c0392b'}">${a.keyMoments[i].pct}% roof in sun</span>
+            </div>
+          </div>
+        </div>`).join('')}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px">
+      ${[2,3].map(i=>`
+        <div>
+          <div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#8896a5;margin-bottom:6px;display:flex;align-items:center;gap:6px">
+            <span style="width:3px;height:12px;border-radius:2px;background:#E8880A;display:inline-block"></span>${momentLabels[i]}
+          </div>
+          <div style="border-radius:8px;overflow:hidden;border:1px solid #E2E8F0">
+            <img src="${a.screenshots['aerial_'+i]}" style="width:100%;display:block">
+            <div style="padding:6px 12px;background:#F7F9FC;font-size:10px;color:#475569;display:flex;justify-content:space-between">
+              <span>Aerial · ${MONTHS_FULL[a.keyMoments[i].month]} · ${a.keyMoments[i].hour}:00</span>
+              <span style="font-weight:700;color:${a.keyMoments[i].pct>70?'#1a7a4a':a.keyMoments[i].pct>45?'#b45309':'#c0392b'}">${a.keyMoments[i].pct}% roof in sun</span>
+            </div>
+          </div>
+        </div>`).join('')}
+    </div>`;
+
+  const groundPairs=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px">
+      <div>
+        <div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#8896a5;margin-bottom:6px;display:flex;align-items:center;gap:6px">
+          <span style="width:3px;height:12px;border-radius:2px;background:#E8880A;display:inline-block"></span>Ground · ${MONTHS_FULL[a.keyMoments[0].month]} noon · ${a.keyMoments[0].season} best case
+        </div>
+        <div style="border-radius:8px;overflow:hidden;border:1px solid #E2E8F0">
+          <img src="${a.screenshots.ground_best}" style="width:100%;display:block">
+          <div style="padding:6px 12px;background:#F7F9FC;font-size:10px;color:#475569;display:flex;justify-content:space-between">
+            <span>Shadow = ${(a.bh/Math.tan(toR(sAlt(a.lat,DECL[a.keyMoments[0].month],12)))).toFixed(1)}m · ${(1/Math.tan(toR(sAlt(a.lat,DECL[a.keyMoments[0].month],12)))).toFixed(2)}× building height</span>
+            <span style="font-weight:700;color:#1a7a4a">Best ${ng?'dry season':'summer'}</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#8896a5;margin-bottom:6px;display:flex;align-items:center;gap:6px">
+          <span style="width:3px;height:12px;border-radius:2px;background:#E8880A;display:inline-block"></span>Ground · ${MONTHS_FULL[a.keyMoments[1].month]} noon · ${a.keyMoments[1].season} worst case
+        </div>
+        <div style="border-radius:8px;overflow:hidden;border:1px solid #E2E8F0">
+          <img src="${a.screenshots.ground_worst}" style="width:100%;display:block">
+          <div style="padding:6px 12px;background:#F7F9FC;font-size:10px;color:#475569;display:flex;justify-content:space-between">
+            <span>Shadow = ${(a.bh/Math.tan(toR(sAlt(a.lat,DECL[a.keyMoments[1].month],12)))).toFixed(1)}m · ${(1/Math.tan(toR(sAlt(a.lat,DECL[a.keyMoments[1].month],12)))).toFixed(2)}× building height</span>
+            <span style="font-weight:700;color:#c0392b">Lowest ${ng?'harmattan':'winter'}</span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  // Matrix table
+  const matrixRows=a.matrix.map((row,mi)=>`
+    <tr>
+      <td style="font-size:9px;font-weight:600;color:#475569;background:#F7F9FC;padding:4px 8px;text-align:right;border:1px solid #E2E8F0;white-space:nowrap">${MONTHS[mi]}</td>
+      ${row.map(v=>`<td style="padding:4px 3px;text-align:center;border:1px solid #E2E8F0;font-size:8px;font-weight:600;${shadeCell(v)}">${v}</td>`).join('')}
+      <td style="font-size:9px;font-weight:700;color:#0D9488;background:#F7F9FC;padding:4px 6px;text-align:center;border:1px solid #E2E8F0">${a.psh[mi]}</td>
+    </tr>`).join('');
+
+  // PSH bar chart SVG
+  const barW=38,barGap=4,chartW=(barW+barGap)*12,chartH=90;
+  const pshBars=a.psh.map((v,i)=>{
+    const barH=Math.max(4,Math.round(v/maxPsh*chartH*0.88));
+    const x=i*(barW+barGap);
+    const col=pshBarCol(v);
+    return `<g>
+      <rect x="${x}" y="${chartH-barH}" width="${barW}" height="${barH}" rx="3" fill="${col}"/>
+      <text x="${x+barW/2}" y="${chartH-barH-3}" text-anchor="middle" font-size="8" font-weight="700" fill="#475569" font-family="sans-serif">${v}</text>
+      <text x="${x+barW/2}" y="${chartH+11}" text-anchor="middle" font-size="8" fill="#8896a5" font-family="sans-serif">${MONTHS[i]}</text>
+    </g>`;
+  }).join('');
+
+  const html=`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Solar Assessment — ${esc(c['Full Name']||'')} — ${a.reportId}</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',system-ui,sans-serif;background:#E8ECF0;color:#0D1117;-webkit-font-smoothing:antialiased}
+.page-wrap{max-width:820px;margin:0 auto;background:#fff;box-shadow:0 4px 40px rgba(0,0,0,0.12);min-height:100vh}
+.cover{background:#1C2333;position:relative;overflow:hidden}
+.stripe{height:6px;background:linear-gradient(90deg,#E8880A 0%,#F5A623 40%,#0B7B6B 100%)}
+.cover-in{padding:44px 48px 40px}
+.cover-logo-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:48px}
+.brand{display:flex;align-items:center;gap:9px}
+.brand-mark{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#E8880A,#0B7B6B);display:flex;align-items:center;justify-content:center;font-size:17px}
+.brand-name{font-weight:700;font-size:1.05rem;color:#fff}
+.brand-name span{color:#E8880A}
+.brand-sub{font-size:9px;color:rgba(255,255,255,0.35);letter-spacing:.04em}
+.rep-id{font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.3)}
+.cover-tag{display:inline-block;background:rgba(232,136,10,0.18);border:1px solid rgba(232,136,10,0.35);color:#E8880A;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:4px 12px;border-radius:50px;margin-bottom:16px}
+.cover-title{font-family:'DM Serif Display',Georgia,serif;font-size:2.6rem;color:#fff;line-height:1.1;margin-bottom:8px;max-width:500px}
+.cover-title em{color:#E8880A;font-style:normal}
+.cover-sub{font-size:.95rem;color:rgba(255,255,255,0.5);margin-bottom:36px;font-weight:300}
+.cover-figs{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:rgba(255,255,255,0.08);border-radius:8px;overflow:hidden;margin-bottom:32px}
+.cover-fig{background:rgba(255,255,255,0.04);padding:16px 18px}
+.fig-val{font-family:'DM Serif Display',serif;font-size:1.9rem;color:#E8880A;line-height:1;margin-bottom:4px}
+.fig-lbl{font-size:9px;color:rgba(255,255,255,0.38);font-weight:500;text-transform:uppercase;letter-spacing:.07em}
+.cover-client-row{display:flex;justify-content:space-between;align-items:flex-end;padding-top:24px;border-top:1px solid rgba(255,255,255,0.08)}
+.cover-client-info h3{font-size:.95rem;font-weight:700;color:#fff;margin-bottom:3px}
+.cover-client-info p{font-size:.78rem;color:rgba(255,255,255,0.42);line-height:1.5}
+.cover-date{text-align:right;font-size:.78rem;color:rgba(255,255,255,0.42);line-height:1.7}
+.section{padding:36px 48px;border-bottom:1px solid #E2E8F0}
+.section:last-child{border-bottom:none}
+.sec-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#0B7B6B;margin-bottom:5px}
+.sec-title{font-family:'DM Serif Display',serif;font-size:1.4rem;color:#0D1117;margin-bottom:18px;line-height:1.2}
+.info-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
+.info-card{background:#F7F9FC;border:1px solid #E2E8F0;border-radius:7px;padding:13px 15px}
+.ic-lbl{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#8896A5;margin-bottom:4px}
+.ic-val{font-size:.88rem;font-weight:600;color:#0D1117}
+.ic-sub{font-size:.72rem;color:#8896A5;margin-top:2px}
+.save-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:50px;font-size:10px;font-weight:600;margin-bottom:16px;${a.saveOk?'background:#e8f5ee;border:1px solid #a7f3d0;color:#1a7a4a':'background:#fdecea;border:1px solid #fca5a5;color:#c0392b'}}
+@media print{
+  body{background:#fff!important}
+  .page-wrap{box-shadow:none!important}
+  img{page-break-inside:avoid}
+  /* Force all background colours to print */
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
+}
+/* Also apply outside @media so it's always set */
+*{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+<!-- COVER -->
+<div class="cover">
+<div class="stripe"></div>
+<div class="cover-in">
+  <div class="cover-logo-row">
+    <div class="brand">
+      <div class="brand-mark">☀</div>
+      <div><div class="brand-name">Sun<span>Sim</span> Dev</div><div class="brand-sub">Solar Site Assessment Platform</div></div>
+    </div>
+    <div class="rep-id">${a.reportId}</div>
+  </div>
+  <div class="cover-tag">Solar Site Assessment Report</div>
+  <div class="cover-title">Site Analysis &amp;<br><em>Solar Feasibility</em><br>Assessment</div>
+  <div class="cover-sub">Full shading study · Sun path analysis · Panel placement recommendations${ng?' · Nigeria seasons applied':''}</div>
+  <div class="cover-figs">
+    <div class="cover-fig"><div class="fig-val">${ST.roofAreaM2.toFixed(0)}</div><div class="fig-lbl">Roof Area (m²)</div></div>
+    <div class="cover-fig"><div class="fig-val">${avgPsh}</div><div class="fig-lbl">Avg Peak Sun Hrs/day</div></div>
+    <div class="cover-fig"><div class="fig-val">${worstPsh}</div><div class="fig-lbl">${ng?'Harmattan':'Low Season'} Min</div></div>
+    <div class="cover-fig"><div class="fig-val">${usableArea}</div><div class="fig-lbl">Usable Roof Area (m²)</div></div>
+  </div>
+  <div class="cover-client-row">
+    <div class="cover-client-info">
+      <h3>${esc(c['Full Name']||'')}</h3>
+      <p>${esc(c.Address||'')} · ${esc(c.Phone||'')}${c.Email?' · '+esc(c.Email):''}<br>
+      ${esc(c['Property Type']||'')} · ${esc(c['Meter Type']||'')} · Band ${esc(c['Distribution Band']||'').replace('band-','').toUpperCase()} · Goal: ${c['Coverage Level']||'—'}% coverage</p>
+    </div>
+    <div class="cover-date">
+      <strong style="color:rgba(255,255,255,0.6)">${a.date} · ${a.time}</strong><br>
+      Assessed by: Mundez Integrated Services<br>
+      ${a.saveOk?'<span style="color:#6abf82">✓ Saved to registry</span>':'<span style="color:#f87171">⚠ Registry save pending</span>'}
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- SECTION 1: CLIENT DETAILS -->
+<div class="section">
+<div class="sec-label">Section 01</div>
+<div class="sec-title">Site Overview & Client Details</div>
+<div class="save-badge">${a.saveOk?'✓ Assessment data saved to Google Sheets registry':'⚠ Registry save failed — data stored in browser only'}</div>
+<div class="info-grid">
+  <div class="info-card"><div class="ic-lbl">Client</div><div class="ic-val">${esc(c['Full Name']||'')}</div><div class="ic-sub">${esc(c.Email||'')}</div></div>
+  <div class="info-card"><div class="ic-lbl">Phone</div><div class="ic-val">${esc(c.Phone||'')}</div><div class="ic-sub">Primary contact</div></div>
+  <div class="info-card"><div class="ic-lbl">Location</div><div class="ic-val">${esc(c.State||'')}</div><div class="ic-sub">${a.lat.toFixed(4)}°${a.lat>=0?'N':'S'}, ${a.lng.toFixed(4)}°${a.lng>=0?'E':'W'}</div></div>
+  <div class="info-card"><div class="ic-lbl">Property</div><div class="ic-val">${esc(c['Property Type']||'')}</div><div class="ic-sub">${esc(c.Occupants||'—')} occupants</div></div>
+  <div class="info-card"><div class="ic-lbl">Meter Type</div><div class="ic-val">${esc(c['Meter Type']||'')}</div><div class="ic-sub">Band ${esc((c['Distribution Band']||'').replace('band-','').toUpperCase())}</div></div>
+  <div class="info-card"><div class="ic-lbl">Monthly Spend</div><div class="ic-val">₦${Number(c['Avg Consumption Value']||0).toLocaleString()}</div><div class="ic-sub">${esc(c['Avg Consumption Unit']||'naira')}</div></div>
+  <div class="info-card"><div class="ic-lbl">Solar Goal</div><div class="ic-val">${c['Coverage Level']||'—'}% Coverage</div><div class="ic-sub">Desired solar system level</div></div>
+  <div class="info-card"><div class="ic-lbl">Roof Area</div><div class="ic-val">${ST.roofAreaM2.toFixed(1)} m²</div><div class="ic-sub">From drawn polygon · ${usableArea} m² usable</div></div>
+</div>
+
+<!-- SIDE-BY-SIDE MAP VIEW -->
+<div style="margin-bottom:8px">
+  <div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#8896a5;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+    <span style="width:3px;height:12px;border-radius:2px;background:#E8880A;display:inline-block"></span>
+    Site mapping — Satellite imagery (Esri) alongside simulation overlay · ${MONTHS[a.keyMoments[0].month]} noon best case
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+
+    <!-- LEFT: Real Esri satellite tile -->
+    <div style="border-radius:9px;overflow:hidden;border:1px solid #E2E8F0">
+      <div style="background:#2c3e50;padding:5px 10px;font-size:9px;font-weight:600;color:rgba(255,255,255,0.5);letter-spacing:.05em;text-transform:uppercase;display:flex;justify-content:space-between">
+        <span>🛰 Esri World Imagery · Satellite</span>
+        <span style="font-family:monospace">${a.lat.toFixed(5)}°${a.lat>=0?'N':'S'} ${a.lng.toFixed(5)}°${a.lng>=0?'E':'W'}</span>
+      </div>
+      <!-- Stitched Esri satellite tiles at zoom 19 — same source as SunSim Dev Leaflet map, no API key required -->
+      ${(()=>{
+        const zoom=19;
+        const lat=a.lat, lng=a.lng;
+        // Convert lat/lng to tile XY at zoom 19
+        const n = Math.pow(2, zoom);
+        const xTile = Math.floor((lng + 180) / 360 * n);
+        const latRad = lat * Math.PI / 180;
+        const yTile = Math.floor((1 - Math.log(Math.tan(latRad) + 1/Math.cos(latRad)) / Math.PI) / 2 * n);
+        // Build a 3×2 grid of tiles centred on the location
+        const tileW = 256, tileH = 256;
+        const cols = 3, rows = 2;
+        const totalW = cols * tileW, totalH = rows * tileH;
+        // The centre tile offset so the pin is roughly centred
+        const startX = xTile - Math.floor(cols/2);
+        const startY = yTile - Math.floor(rows/2);
+        let imgs = '';
+        for(let r=0; r<rows; r++){
+          for(let c=0; c<cols; c++){
+            const tx = startX + c, ty = startY + r;
+            const url = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${ty}/${tx}`;
+            imgs += `<img src="${url}" style="position:absolute;left:${c*tileW}px;top:${r*tileH}px;width:${tileW}px;height:${tileH}px;display:block" onerror="this.style.opacity=0.2">`;
+          }
+        }
+        // Pin marker at exact client position — pixel offset within the tile grid
+        // Pixel position of lat/lng within this tile grid
+        const pxX = (lng + 180) / 360 * n * tileW - startX * tileW;
+        const pxY = (1 - Math.log(Math.tan(latRad) + 1/Math.cos(latRad)) / Math.PI) / 2 * n * tileH - startY * tileH;
+        const pinLeft = Math.round(Math.min(Math.max(pxX-10, 0), totalW-20));
+        const pinTop  = Math.round(Math.min(Math.max(pxY-28, 0), totalH-32));
+        imgs += `<div style="position:absolute;left:${pinLeft}px;top:${pinTop}px;z-index:10;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.7))">
+          <svg width="20" height="28" viewBox="0 0 20 28" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 0C4.48 0 0 4.48 0 10c0 6.88 10 18 10 18S20 16.88 20 10C20 4.48 15.52 0 10 0z" fill="#0D9488"/>
+            <circle cx="10" cy="10" r="4" fill="white"/>
+          </svg>
+        </div>`;
+        return `<div style="position:relative;width:${totalW}px;height:${totalH}px;overflow:hidden;max-width:100%">${imgs}</div>`;
+      })()}
+      <div style="padding:6px 12px;background:#F7F9FC;font-size:9px;color:#64748B;display:flex;justify-content:space-between;align-items:center">
+        <span>Esri World Imagery · Zoom 19 · ${esc(c.Address||'')}</span>
+        <a href="https://www.google.com/maps/@${a.lat},${a.lng},19z?basemap=satellite" target="_blank" style="color:#0D9488;text-decoration:none;font-weight:600">Open in Maps →</a>
+      </div>
+    </div>
+
+    <!-- RIGHT: Simulation overlay -->
+    <div style="border-radius:9px;overflow:hidden;border:1px solid #E2E8F0">
+      <div style="background:#141E2E;padding:5px 10px;font-size:9px;font-weight:600;color:rgba(255,255,255,0.5);letter-spacing:.05em;text-transform:uppercase;display:flex;justify-content:space-between">
+        <span>☀ Shadow simulation · ${MONTHS[a.keyMoments[0].month]} noon</span>
+        <span style="color:#FBBF24;font-family:monospace">${Math.round(sAlt(a.lat,DECL[a.keyMoments[0].month],12))}° altitude</span>
+      </div>
+      <img src="${a.screenshots['aerial_0']}" style="width:100%;display:block">
+      <div style="padding:6px 12px;background:#F7F9FC;font-size:9px;color:#64748B;display:flex;justify-content:space-between">
+        <span>Amber=roof · Green=trees · Purple=buildings · Black=shadow</span>
+        <span style="font-weight:700;color:#1a7a4a">${a.keyMoments[0].pct}% in sun</span>
+      </div>
+    </div>
+
+  </div>
+  <div style="margin-top:9px;padding:10px 13px;background:#F7F9FC;border:1px solid #E2E8F0;border-radius:6px;font-size:.78rem;color:#475569;line-height:1.55">
+    <strong style="color:#0D1117">Reading these together:</strong> The left panel shows Esri World Imagery satellite view of the exact site location.
+    The right panel is the solar simulation overlay at the same scale — the amber polygon marks the drawn roof boundary,
+    green circles represent mapped trees at their recorded heights, purple polygons show neighbouring structures,
+    and black areas show shadow footprints at this moment.
+    The sun azimuth is ${Math.round(sAz(a.lat,DECL[a.keyMoments[0].month],12))}°
+    (${['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'][Math.round(sAz(a.lat,DECL[a.keyMoments[0].month],12)/22.5)%16]}) —
+    this is the sun direction arrow shown on the simulation.
+  </div>
+</div>
+</div>
+
+<!-- SECTION 2: AERIAL KEY MOMENTS -->
+<div class="section">
+<div class="sec-label">Section 02</div>
+<div class="sec-title">Key Solar Moments — Aerial View</div>
+<p style="font-size:.84rem;color:#475569;margin-bottom:18px">Four critical snapshots from the sun path simulation — the best and worst case shading scenarios your installation will encounter across the year${ng?', adjusted for Nigerian dry and rainy seasons':''}.</p>
+${aerialPairs}
+</div>
+
+<!-- SECTION 3: GROUND VIEW -->
+<div class="section">
+<div class="sec-label">Section 03</div>
+<div class="sec-title">Ground View — Shadow Depth & Horizon Analysis</div>
+<p style="font-size:.84rem;color:#475569;margin-bottom:18px">Side elevation showing the sun angle at key moments, shadow length relative to building height, and the visual impact of neighbouring structures on the solar window.${ng?' At ${a.lat.toFixed(1)}°N latitude, Nigeria\'s sun remains high even in the lowest months — shadow lengths are much shorter than in temperate climates.':''}</p>
+${groundPairs}
+<div style="margin-top:12px;padding:12px 16px;background:#F7F9FC;border:1px solid #E2E8F0;border-radius:7px;font-size:.8rem;color:#475569">
+  <strong style="color:#0D1117">Note on Nigerian sun angles:</strong> At ${a.lat.toFixed(1)}°N, the December noon sun altitude is 
+  ~${Math.round(sAlt(a.lat,DECL[11],12))}° and the June noon altitude is ~${Math.round(sAlt(a.lat,DECL[5],12))}°. 
+  This means the December shadow is only ${(1/Math.tan(toR(Math.max(1,sAlt(a.lat,DECL[11],12))))).toFixed(2)}× the building height 
+  — significantly shorter than the shadows seen in Europe or North America during winter. 
+  ${ng?'Reduced output in the dry season (Nov–Mar) is primarily caused by harmattan dust haze reducing direct irradiance, not by low sun angles.':''}
+</div>
+</div>
+
+<!-- SECTION 4: SHADING MATRIX -->
+<div class="section">
+<div class="sec-label">Section 04</div>
+<div class="sec-title">Full-Year Shading Matrix</div>
+<p style="font-size:.84rem;color:#475569;margin-bottom:14px">
+  Percentage of roof area in direct sunlight for each hour of each month. 
+  <strong>Colour key: dark blue = night/horizon · green shades = increasing sunlight · amber/gold = peak sun on roof.</strong> 
+  The final column shows the computed peak sun hours (PSH) for that month. 
+  This matrix is computed from the actual solar geometry for this site latitude (${a.lat.toFixed(2)}°) 
+  and all mapped obstructions — not estimated.
+</p>
+<div style="overflow-x:auto;margin-bottom:22px">
+<table style="width:100%;border-collapse:collapse;font-size:.7rem;font-family:'JetBrains Mono',monospace">
+  <thead>
+    <tr>
+      <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:600;color:#8896A5;background:#F7F9FC;border:1px solid #E2E8F0">Month</th>
+      ${hourLabels.map(h=>`<th style="padding:4px 2px;text-align:center;font-size:8px;font-weight:600;color:#8896A5;background:#F7F9FC;border:1px solid #E2E8F0">${h}</th>`).join('')}
+      <th style="padding:4px 6px;text-align:center;font-size:8px;font-weight:700;color:#0B7B6B;background:#F7F9FC;border:1px solid #E2E8F0">PSH</th>
+    </tr>
+  </thead>
+  <tbody>${matrixRows}</tbody>
+</table>
+</div>
+
+<p style="font-size:.82rem;color:#475569;margin-bottom:10px;font-weight:600">Monthly Peak Sun Hours — computed from shading matrix</p>
+<div style="padding:16px;background:#F7F9FC;border:1px solid #E2E8F0;border-radius:8px;margin-bottom:10px">
+<svg viewBox="0 0 ${chartW+20} ${chartH+24}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;display:block;margin:0 auto">
+${pshBars}
+</svg>
+<div style="display:flex;gap:14px;flex-wrap:wrap;padding-top:8px;font-size:9px;color:#8896a5;margin-top:4px">
+  <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:8px;border-radius:2px;background:#0D9488;display:inline-block"></span>Peak ≥6.5 hrs/day</span>
+  <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:8px;border-radius:2px;background:#22C55E;display:inline-block"></span>Good 5.5–6.4 hrs/day</span>
+  <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:8px;border-radius:2px;background:#F59E0B;display:inline-block"></span>Moderate 4.5–5.4 hrs/day</span>
+  <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:8px;border-radius:2px;background:#EF4444;display:inline-block"></span>Low &lt;4.5 hrs/day</span>
+</div>
+</div>
+<p style="font-size:.78rem;color:#8896A5">
+  ${ng?'Nigeria\'s':'This site\'s'} peak month is <strong style="color:#0D1117">${MONTHS_FULL[peakMonthIdx]} (${peakPsh} PSH/day)</strong> and 
+  lowest month is <strong style="color:#0D1117">${MONTHS_FULL[worstMonthIdx]} (${worstPsh} PSH/day)</strong>. 
+  Annual average: <strong style="color:#0D1117">${avgPsh} peak sun hours/day</strong> — 
+  ${ng?'an excellent solar resource. Note that reduced output in the dry season is primarily due to harmattan haze, not low sun angles. December noon sun altitude at this latitude is ~'+Math.round(sAlt(a.lat,DECL[11],12))+'°, which is still very productive.':'a strong solar resource for this location.'}
+</p>
+</div>
+
+<!-- SECTION 5: OBSTRUCTIONS -->
+<div class="section">
+<div class="sec-label">Section 05</div>
+<div class="sec-title">Shading Obstructions Analysis</div>
+<p style="font-size:.84rem;color:#475569;margin-bottom:16px">Assessment of all obstructions identified and mapped on the satellite view and their computed impact on the solar installation.</p>
+${ST.mapTrees.length+ST.mapBuildings.length>0?`
+<table style="width:100%;border-collapse:collapse;margin-bottom:18px;font-size:.8rem">
+  <thead><tr>
+    <th style="padding:9px 12px;text-align:left;background:#0D1117;color:#fff;font-size:.73rem;font-weight:600;border-radius:6px 0 0 0">Obstruction</th>
+    <th style="padding:9px 12px;text-align:left;background:#0D1117;color:#fff;font-size:.73rem;font-weight:600">Type</th>
+    <th style="padding:9px 12px;text-align:left;background:#0D1117;color:#fff;font-size:.73rem;font-weight:600">Height</th>
+    <th style="padding:9px 12px;text-align:left;background:#0D1117;color:#fff;font-size:.73rem;font-weight:600">Coordinates</th>
+    <th style="padding:9px 12px;text-align:left;background:#0D1117;color:#fff;font-size:.73rem;font-weight:600;border-radius:0 6px 0 0">Distance from roof</th>
+  </tr></thead>
+  <tbody>
+    ${ST.mapTrees.map((t,i)=>{
+      const cosLat=Math.cos(toR(a.lat)),mPd=111320;
+      const dx=(t.lng-ST.centroidLng)*mPd*cosLat,dy=(t.lat-ST.centroidLat)*mPd;
+      const dist=Math.round(Math.sqrt(dx*dx+dy*dy));
+      const bearing=((toDeg(Math.atan2(dx,dy))+360)%360);
+      const dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+      return`<tr><td style="padding:8px 12px;border-bottom:1px solid #E2E8F0;font-weight:600">Tree ${t.id}</td><td style="padding:8px 12px;border-bottom:1px solid #E2E8F0"><span style="background:#e8f5ee;color:#1a7a4a;padding:2px 8px;border-radius:50px;font-size:9px;font-weight:600">🌳 Tree</span></td><td style="padding:8px 12px;border-bottom:1px solid #E2E8F0">${t.h}m</td><td style="padding:8px 12px;border-bottom:1px solid #E2E8F0;font-family:monospace;font-size:9px">${t.lat.toFixed(5)}, ${t.lng.toFixed(5)}</td><td style="padding:8px 12px;border-bottom:1px solid #E2E8F0">${dist}m ${dirs[Math.round(bearing/22.5)%16]}</td></tr>`;
+    }).join('')}
+    ${ST.mapBuildings.map((b,i)=>{
+      const cosLat=Math.cos(toR(a.lat)),mPd=111320;
+      const clat=b.latLngs.reduce((s,p)=>s+p.lat,0)/b.latLngs.length;
+      const clng=b.latLngs.reduce((s,p)=>s+p.lng,0)/b.latLngs.length;
+      const dx=(clng-ST.centroidLng)*mPd*cosLat,dy=(clat-ST.centroidLat)*mPd;
+      const dist=Math.round(Math.sqrt(dx*dx+dy*dy));
+      const bearing=((toDeg(Math.atan2(dx,dy))+360)%360);
+      const dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+      return`<tr><td style="padding:8px 12px;border-bottom:1px solid #E2E8F0;font-weight:600">${esc(b.name)}</td><td style="padding:8px 12px;border-bottom:1px solid #E2E8F0"><span style="background:#ede9fe;color:#5b21b6;padding:2px 8px;border-radius:50px;font-size:9px;font-weight:600">🏢 Building</span></td><td style="padding:8px 12px;border-bottom:1px solid #E2E8F0">${b.h}m</td><td style="padding:8px 12px;border-bottom:1px solid #E2E8F0;font-family:monospace;font-size:9px">${clat.toFixed(5)}, ${clng.toFixed(5)}</td><td style="padding:8px 12px;border-bottom:1px solid #E2E8F0">${dist}m ${dirs[Math.round(bearing/22.5)%16]}</td></tr>`;
+    }).join('')}
+  </tbody>
+</table>`:''}
+${findingHTML}
+</div>
+
+<!-- SECTION 6: RECOMMENDATIONS -->
+<div class="section">
+<div class="sec-label">Section 06</div>
+<div class="sec-title">Recommendations & System Sizing Guidance</div>
+<div style="background:#1C2333;border-radius:9px;padding:22px 24px;margin-bottom:22px">
+  <div style="font-family:'DM Serif Display',serif;font-size:1.05rem;color:#fff;margin-bottom:13px">Developer Recommendations</div>
+  ${recHTML}
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+  <div style="background:#F7F9FC;border:1px solid #E2E8F0;border-left:3px solid #E8880A;border-radius:7px;padding:13px 14px">
+    <div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#8896A5;margin-bottom:4px">Recommended Panel Area</div>
+    <div style="font-size:.9rem;font-weight:700">${usableArea} m²</div>
+    <div style="font-size:.72rem;color:#8896A5;margin-top:2px">SW roof zone, unobstructed</div>
+  </div>
+  <div style="background:#F7F9FC;border:1px solid #E2E8F0;border-left:3px solid #0B7B6B;border-radius:7px;padding:13px 14px">
+    <div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#8896A5;margin-bottom:4px">Avg Peak Sun Hours</div>
+    <div style="font-size:.9rem;font-weight:700">${avgPsh} hrs/day</div>
+    <div style="font-size:.72rem;color:#8896A5;margin-top:2px">Annual average, site-specific</div>
+  </div>
+  <div style="background:#F7F9FC;border:1px solid #E2E8F0;border-left:3px solid #22C55E;border-radius:7px;padding:13px 14px">
+    <div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#8896A5;margin-bottom:4px">Peak Month</div>
+    <div style="font-size:.9rem;font-weight:700">${MONTHS_FULL[peakMonthIdx]}</div>
+    <div style="font-size:.72rem;color:#8896A5;margin-top:2px">${peakPsh} PSH/day · ${ng?getSeasonLabel(peakMonthIdx,a.lat,a.lng):''}</div>
+  </div>
+  <div style="background:#F7F9FC;border:1px solid #E2E8F0;border-left:3px solid #EF4444;border-radius:7px;padding:13px 14px">
+    <div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#8896A5;margin-bottom:4px">Lowest Month</div>
+    <div style="font-size:.9rem;font-weight:700">${MONTHS_FULL[worstMonthIdx]}</div>
+    <div style="font-size:.72rem;color:#8896A5;margin-top:2px">${worstPsh} PSH/day · ${ng?getSeasonLabel(worstMonthIdx,a.lat,a.lng):''}</div>
+  </div>
+</div>
+</div>
+
+<!-- FOOTER -->
+<div style="background:#F7F9FC;padding:24px 48px;display:flex;align-items:center;justify-content:space-between;border-top:2px solid #E2E8F0">
+  <div style="display:flex;align-items:center;gap:8px">
+    <div style="width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,#E8880A,#0B7B6B);display:flex;align-items:center;justify-content:center;font-size:14px">☀</div>
+    <div>
+      <div style="font-weight:700;font-size:.88rem">Sun<span style="color:#E8880A">Sim</span> Dev</div>
+      <div style="font-size:.7rem;color:#8896A5">Solar Site Assessment Platform</div>
+    </div>
+  </div>
+  <div style="text-align:right;font-size:.73rem;color:#8896A5;line-height:1.7">
+    <strong style="color:#475569">${a.reportId}</strong> · Generated ${a.date}, ${a.time}<br>
+    Assessed by Mundez Integrated Services · A Mundez Integrated Services initiative · Est. 2023<br>
+    <span style="font-size:.68rem">This report is generated from satellite imagery and solar simulation data. On-site verification recommended before installation.</span>
+  </div>
+</div>
+
+</div>
+<div style="position:fixed;bottom:20px;right:20px;display:flex;gap:8px;z-index:100;print-color-adjust:exact">
+  <button onclick="window.print()" style="background:linear-gradient(135deg,#E8880A,#0B7B6B);color:#000;font-weight:700;padding:10px 20px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-family:sans-serif;box-shadow:0 4px 14px rgba(0,0,0,0.3)">
+    🖨 Save as PDF
+  </button>
+  <button onclick="this.parentElement.style.display='none'" style="background:rgba(0,0,0,0.4);color:#fff;padding:10px 14px;border:1px solid rgba(255,255,255,0.2);border-radius:8px;cursor:pointer;font-size:12px;font-family:sans-serif">
+    ✕
+  </button>
+</div>
+<style>@media print{[style*="position:fixed"]{display:none!important}}</style>
+</body>
+</html>`;
+
+  return html;
+}
+
+// ══════════════════════════════════════════════
+// FUTURE OBSTACLE CANVAS INTERACTIONS
+// ══════════════════════════════════════════════
+function setFMode(m){
+  ST.aerialMode=m;ST.drawingFBld=false;ST.drawFPts=[];
+  document.getElementById('future-hint').style.display='none';
+  ['ftree','fbld','fsel'].forEach(x=>document.getElementById('mode-'+x).classList.toggle('active',x===m));
+  document.getElementById('ftree-ctrl').style.display=m==='tree'?'':'none';
+  document.getElementById('fbld-ctrl').style.display=m==='building'?'':'none';
+  cvA.style.cursor=m==='select'?'default':m==='building'?'crosshair':'copy';
+  if(m!=='select'){ST.selectedId=null;document.getElementById('obs-ed').classList.remove('show');}
+  drawAll();
+}
+
+cvA.addEventListener('mousedown',function(e){
+  if(!ST.simReady)return;
+  const rect=cvA.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+  const x=e.clientX-rect.left,y=e.clientY-rect.top;
+  const W=cvA.width/dpr,H=cvA.height/dpr,pad=36;
+  const fx=(x-pad)/(W-pad*2),fy=(y-pad)/(H-pad*2);
+  if(ST.aerialMode==='tree'){if(fx>=0&&fx<=1&&fy>=0&&fy<=1){ST.futureTrees.push({fx,fy,r:0.026+Math.random()*.01});saveWork();updateFutureList();drawAll();}return;}
+  if(ST.aerialMode==='building'){if(ST.drawingFBld){ST.drawFPts.push({fx,fy});drawAll();}else{ST.drawingFBld=true;ST.drawFPts=[{fx,fy}];document.getElementById('future-hint').style.display='block';drawAll();}return;}
+  if(ST.aerialMode==='select'){
+    let hit=null,hitType=null;
+    const tf=getSceneTF(W,H,pad);
+    for(const bld of ST.futureBuildings){const poly=bld.pts.map(p=>bpt2s(p,W,H,pad));if(ptInPoly(x,y,poly)){hit=bld;hitType='future';break;}}
+    if(!hit&&tf){for(const bld of ST.mapBuildings){const poly=bld.latLngs.map(p=>w2s(p.lat,p.lng,tf));if(ptInPoly(x,y,poly)){hit=bld;hitType='map';break;}}}
+    if(hit){
+      ST.selectedId=hit.id;
+      document.getElementById('obs-ed').classList.add('show');
+      document.getElementById('obs-nm').textContent=(hitType==='map'?'🏢 ':'🏢 Future ')+hit.name;
+      document.getElementById('sl-sel-h').value=hit.h;
+      document.getElementById('obs-hv').textContent=hit.h+' m';
+      if(hitType==='future'){const poly=hit.pts.map(p=>bpt2s(p,W,H,pad));let ci=-1;for(let i=0;i<poly.length;i++){if(Math.hypot(x-poly[i][0],y-poly[i][1])<10){ci=i;break;}}if(ci>=0){ST.dragging=true;ST.dragObsId=hit.id;ST.dragStart={x,y};ST.dragCornerIdx=ci;ST.dragType='corner';}else{ST.dragging=true;ST.dragObsId=hit.id;ST.dragStart={x,y};ST.dragObsPtsOrig=hit.pts.map(p=>({...p}));ST.dragType='move';}}
+    }else{ST.selectedId=null;document.getElementById('obs-ed').classList.remove('show');}
+    drawAll();
+  }
+});
+
+cvA.addEventListener('dblclick',function(e){
+  if(ST.aerialMode==='building'&&ST.drawingFBld&&ST.drawFPts.length>=3){
+    const h=+document.getElementById('sl-fobh').value,name='Future bldg '+ST.nextFutureId++;
+    ST.futureBuildings.push({pts:[...ST.drawFPts],h,id:Date.now(),name});
+    ST.drawingFBld=false;ST.drawFPts=[];document.getElementById('future-hint').style.display='none';
+    saveWork();updateFutureList();drawAll();toast('Future obstacle added.');
+  }
+});
+
+cvA.addEventListener('mousemove',function(e){
+  if(!ST.dragging)return;
+  const rect=cvA.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+  const x=e.clientX-rect.left,y=e.clientY-rect.top,W=cvA.width/dpr,H=cvA.height/dpr,pad=36;
+  if(ST.dragType==='move'){const dx=(x-ST.dragStart.x)/(W-pad*2),dy=(y-ST.dragStart.y)/(H-pad*2);const bld=ST.futureBuildings.find(b=>b.id===ST.dragObsId);if(bld){bld.pts=ST.dragObsPtsOrig.map(p=>({fx:Math.max(0,Math.min(1,p.fx+dx)),fy:Math.max(0,Math.min(1,p.fy+dy))}));drawAll();}}
+  else if(ST.dragType==='corner'){const bld=ST.futureBuildings.find(b=>b.id===ST.dragObsId);if(bld){bld.pts[ST.dragCornerIdx]={fx:Math.max(0,Math.min(1,(x-pad)/(W-pad*2))),fy:Math.max(0,Math.min(1,(y-pad)/(H-pad*2)))};drawAll();}}
+});
+
+cvA.addEventListener('mouseup',()=>{if(ST.dragging)saveWork();ST.dragging=false;ST.dragType=null;});
+cvA.addEventListener('mouseleave',()=>{if(ST.dragging)saveWork();ST.dragging=false;});
+
+function finishObs(){ST.selectedId=null;document.getElementById('obs-ed').classList.remove('show');saveWork();drawAll();}
+function delSelected(){if(!ST.selectedId)return;ST.futureBuildings=ST.futureBuildings.filter(b=>b.id!==ST.selectedId);ST.selectedId=null;document.getElementById('obs-ed').classList.remove('show');saveWork();updateFutureList();drawAll();toast('Removed.');}
+function clearFuture(){ST.futureTrees=[];ST.futureBuildings=[];ST.selectedId=null;document.getElementById('obs-ed').classList.remove('show');saveWork();updateFutureList();drawAll();}
+
+// ══════════════════════════════════════════════
+// ANIMATION + TABS + DRAW
+// ══════════════════════════════════════════════
+function toggleAnim(){
+  ST.animating=!ST.animating;
+  const btn=document.getElementById('btn-anim');btn.textContent=ST.animating?'⏸ Pause':'▶ Play';btn.classList.toggle('anim-on',ST.animating);
+  if(ST.animating)animLoop();else cancelAnimationFrame(ST.animFrame);
+}
+function animLoop(){ST.timeVal+=0.05;if(ST.timeVal>21)ST.timeVal=5;document.getElementById('sl-time').value=ST.timeVal;updateControls();drawAll();ST.animFrame=requestAnimationFrame(animLoop);}
+function setTime(t){ST.timeVal=t;document.getElementById('sl-time').value=t;updateControls();drawAll();}
+
+function switchTab(t){
+  ST.currentTab=t;
+  document.getElementById('tab-a').classList.toggle('active',t==='aerial');
+  document.getElementById('tab-g').classList.toggle('active',t==='ground');
+  document.getElementById('view-a').classList.toggle('active',t==='aerial');
+  document.getElementById('view-g').classList.toggle('active',t==='ground');
+  requestAnimationFrame(()=>{requestAnimationFrame(()=>{resizeCvs();drawAll();});});
+}
+
+function drawAll(){
+  updateControls();
+  if(document.getElementById('view-a').classList.contains('active'))_drawAerial();
+  if(document.getElementById('view-g').classList.contains('active'))_drawGround();
+}
+
+// ══════════════════════════════════════════════
+// REPORT INDEX — fetch from database so client
+// cards show "View Report" for databased clients
+// ══════════════════════════════════════════════
+async function fetchReportIndex(){
+  try {
+    const url = SAVE_URL + '?action=getReportIndex';
+    const r = await fetch(url, {method:'GET', mode:'cors'});
+    if(!r.ok) return;
+    const data = await r.json();
+    if(!data.success || !data.index) return;
+    // data.index = [ {phone, reportId, date, reportUrl, clientName}, … ]
+    ST.reportIndex = {};
+    data.index.forEach(row => {
+      if(!row.phone) return;
+      if(!ST.reportIndex[row.phone]) ST.reportIndex[row.phone] = [];
+      ST.reportIndex[row.phone].push({
+        id:   row.reportId,
+        date: row.date,
+        url:  row.reportUrl,
+        name: row.clientName
+      });
+    });
+    // Most recent first per client
+    Object.keys(ST.reportIndex).forEach(p => {
+      ST.reportIndex[p].sort((a,b) => b.date.localeCompare(a.date));
+    });
+    renderClients(); // re-render to show View Report buttons
+    setDbStatus('ok', ST.clients.length+' clients · '+ Object.keys(ST.reportIndex).length+' with reports');
+  } catch(e) {
+    // Silently fail — report index is optional
+    console.warn('Report index fetch failed:', e);
+  }
+}
+
+// ── Load a saved assessment from database and open its report ──
+// Called when developer clicks "View Report" on a client card
+async function loadAndViewReport(phone, reportId){
+  // Open window FIRST to beat popup blocker
+  const rw = window.open('','_blank');
+  if(!rw){ toast('⚠ Popup blocked — allow popups and try again.'); return; }
+
+  // Show a loading screen in the new window immediately
+  rw.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>Loading report…</title>
+    <style>body{margin:0;background:#0B1120;display:flex;align-items:center;justify-content:center;
+    height:100vh;font-family:sans-serif;color:#F1F5F9;flex-direction:column;gap:14px}
+    .sp{width:40px;height:40px;border:3px solid rgba(245,158,11,0.2);border-top-color:#F59E0B;
+    border-radius:50%;animation:spin 0.8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}</style></head>
+    <body><div class="sp"></div>
+    <div>Loading saved assessment…</div>
+    <div style="font-size:.8rem;color:#64748B">Fetching data from Google Sheets</div></body></html>`);
+  rw.document.close();
+
+  toast('Fetching saved assessment for '+phone+'…');
+
+  try {
+    // ── Step 1: Fetch full assessment data ──
+    const assessUrl = SAVE_URL + '?action=getAssessmentsByClient&phone=' + encodeURIComponent(phone);
+    const assessResp = await fetch(assessUrl, {method:'GET', mode:'cors'});
+    if(!assessResp.ok) throw new Error('HTTP '+assessResp.status);
+    const assessData = await assessResp.json();
+    if(!assessData.success || !assessData.assessments || !assessData.assessments.length){
+      throw new Error('No assessment found for this client');
+    }
+
+    // Use the specified reportId if given, otherwise latest
+    let assessment = assessData.assessments[0];
+    if(reportId){
+      const found = assessData.assessments.find(a => a['Report ID'] === reportId);
+      if(found) assessment = found;
+    }
+
+    // ── Step 2: Fetch screenshots for this report ──
+    const ssUrl = SAVE_URL + '?action=getScreenshots&reportId=' + encodeURIComponent(assessment['Report ID']);
+    const ssResp = await fetch(ssUrl, {method:'GET', mode:'cors'});
+    const ssData = ssResp.ok ? await ssResp.json() : {screenshots:[]};
+    const screenshotRows = ssData.screenshots || [];
+
+    // Map Drive URLs back into the screenshots object keyed by frame type
+    const screenshots = {};
+    const frameKeyMap = {
+      'aerial_0':'aerial_0','aerial_1':'aerial_1',
+      'aerial_2':'aerial_2','aerial_3':'aerial_3',
+      'ground_best':'ground_best','ground_worst':'ground_worst'
+    };
+    screenshotRows.forEach(row => {
+      const key = row['File Name'] ? row['File Name'].split('_').slice(1,-1).join('_').replace('.png','') : '';
+      // Frame type from file name: reportId_aerial_0.png → aerial_0
+      const match = (row['File Name']||'').match(/_([a-z_]+\d?)\.png$/);
+      if(match) screenshots[match[1]] = row['Drive File URL'] || '';
+    });
+
+    // ── Step 3: Reconstruct the assessment object ──
+    let matrix = [], psh = [], keyMoments = [];
+    try { matrix = JSON.parse(assessment['Shading Matrix JSON']||'[]'); } catch(e){}
+    try { psh = JSON.parse(assessment['PSH JSON']||'[]'); } catch(e){}
+
+    // Reconstruct ST state from saved data so report functions work
+    // We do NOT overwrite the active client — we build a temporary context
+    const savedLat = parseFloat(assessment['Latitude']) || 9;
+    const savedLng = parseFloat(assessment['Longitude']) || 7.5;
+    let savedRoofLatLngs = [];
+    let savedTrees = [], savedBuildings = [];
+    try { savedRoofLatLngs = JSON.parse(assessment['Roof Polygon JSON']||'[]'); } catch(e){}
+    try { savedTrees = JSON.parse(assessment['Trees JSON']||'[]'); } catch(e){}
+    try { savedBuildings = JSON.parse(assessment['Buildings JSON']||'[]'); } catch(e){}
+
+    // Build key moments from matrix if not saved
+    if(!keyMoments.length && matrix.length === 12){
+      // Temporarily set ST values for findKeyMoments to work
+      const origLat = ST.centroidLat, origLng = ST.centroidLng;
+      const origRoof = ST.roofLatLngs, origTrees = ST.mapTrees, origBlds = ST.mapBuildings;
+      ST.centroidLat = savedLat; ST.centroidLng = savedLng;
+      ST.roofLatLngs = savedRoofLatLngs; ST.mapTrees = savedTrees; ST.mapBuildings = savedBuildings;
+      keyMoments = findKeyMoments(matrix, savedLat, savedLng);
+      // Restore
+      ST.centroidLat = origLat; ST.centroidLng = origLng;
+      ST.roofLatLngs = origRoof; ST.mapTrees = origTrees; ST.mapBuildings = origBlds;
+    }
+
+    // Build findings and recs from saved obstruction data
+    const origLat = ST.centroidLat, origLng = ST.centroidLng;
+    const origRoof = ST.roofLatLngs, origTrees = ST.mapTrees, origBlds = ST.mapBuildings;
+    ST.centroidLat = savedLat; ST.centroidLng = savedLng;
+    ST.roofLatLngs = savedRoofLatLngs;
+    ST.mapTrees = savedTrees.map((t,i) => ({lat:t.lat||0, lng:t.lng||0, h:t.h||5, id:t.id||(i+1)}));
+    ST.mapBuildings = savedBuildings.map((b,i) => ({latLngs:b.latLngs||[], h:b.h||5, id:b.id||(i+1), name:b.name||('Bldg '+(i+1))}));
+    ST.futureBuildings = []; ST.futureTrees = [];
+
+    const findings = analyseObstructions(savedLat, savedLng, matrix);
+    const savedClient = assessData.assessments[0]; // use assessment fields as client proxy
+    const clientProxy = {
+      'Full Name':        assessment['Client Name']||'',
+      'Phone':            assessment['Client Phone']||'',
+      'Email':            assessment['Client Email']||'',
+      'State':            assessment['Client State']||'',
+      'Address':          assessment['Client Address']||'',
+      'Property Type':    assessment['Property Type']||'',
+      'Occupants':        assessment['Occupants']||'',
+      'Meter Type':       assessment['Meter Type']||'',
+      'Distribution Band':assessment['Distribution Band']||'',
+      'Avg Consumption Value': assessment['Monthly Consumption Value']||'',
+      'Avg Consumption Unit':  assessment['Monthly Consumption Unit']||'naira',
+      'Coverage Level':   assessment['Coverage Goal %']||''
+    };
+    const bh = parseFloat(assessment['Building Height M']) || 6;
+    const roofArea = parseFloat(assessment['Roof Area M2']) || 0;
+    const recs = generateRecommendations(psh, matrix, savedLat, savedLng, roofArea, bh, clientProxy);
+
+    // Restore ST
+    ST.centroidLat = origLat; ST.centroidLng = origLng;
+    ST.roofLatLngs = origRoof; ST.mapTrees = origTrees; ST.mapBuildings = origBlds;
+    ST.futureBuildings = []; ST.futureTrees = [];
+
+    // Build the assessment object exactly as runAssessment does
+    const now = new Date(assessment['Assessment Date']||Date.now());
+    const reconstructed = {
+      reportId:        assessment['Report ID'],
+      matrix, psh, keyMoments, findings, recs, screenshots,
+      lat: savedLat, lng: savedLng, bh,
+      saveOk: true, screenshotsSaved: screenshotRows.length,
+      date: assessment['Assessment Date'],
+      time: assessment['Assessment Time'],
+      nigeria: assessment['Is Nigeria']==='Yes',
+      // Temporarily set active client to the saved one
+      _clientOverride: clientProxy,
+      _roofLatLngs: savedRoofLatLngs,
+      _mapTrees: ST.mapTrees,
+      _mapBuildings: ST.mapBuildings
+    };
+
+    // ── Step 4: Generate and write report into open window ──
+    // Temporarily swap active client and geometry for report generation
+    const origClient = ST.activeClient;
+    const origRoofFinal = ST.roofLatLngs;
+    const origTreesFinal = ST.mapTrees;
+    const origBldsFinal = ST.mapBuildings;
+    ST.activeClient = clientProxy;
+    ST.centroidLat = savedLat; ST.centroidLng = savedLng;
+    ST.roofLatLngs = savedRoofLatLngs;
+    ST.mapTrees = reconstructed._mapTrees;
+    ST.mapBuildings = reconstructed._mapBuildings;
+
+    generateReport(reconstructed, rw);
+
+    // Restore everything
+    ST.activeClient = origClient;
+    ST.centroidLat = origLat; ST.centroidLng = origLng;
+    ST.roofLatLngs = origRoofFinal;
+    ST.mapTrees = origTreesFinal;
+    ST.mapBuildings = origBldsFinal;
+
+    toast('✓ Report loaded — '+assessment['Report ID']);
+
+  } catch(err) {
+    console.error('loadAndViewReport error:', err);
+    rw.document.open();
+    rw.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Error</title>
+      <style>body{margin:0;background:#0B1120;display:flex;align-items:center;justify-content:center;
+      height:100vh;font-family:sans-serif;color:#F1F5F9;flex-direction:column;gap:12px;padding:40px;text-align:center}
+      h2{color:#EF4444;margin:0}p{color:#94A3B8;font-size:.9rem;max-width:400px;line-height:1.6}</style></head>
+      <body><h2>⚠ Could not load report</h2>
+      <p>${err.message}</p>
+      <p style="font-size:.8rem;color:#64748B">Check that the Apps Script is deployed and the assessment data is complete in Google Sheets.</p>
+      </body></html>`);
+    rw.document.close();
+    toast('Error loading report: ' + err.message);
+  }
+}
+let toastT;
+function toast(msg){document.getElementById('toast-msg').textContent=msg;const t=document.getElementById('toast');t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),3800);}
+window.addEventListener('resize',()=>{resizeCvs();drawAll();});
+updateControls();
+loadClients();
+// Fetch report index from database after clients load so "View Report" buttons appear
+setTimeout(fetchReportIndex, 1200);
+</script>
+</body>
+</html>
