@@ -1042,9 +1042,23 @@ function selectClient(idx){
 // LEAFLET MAP
 // ══════════════════════════════════════════════
 const lmap=L.map('leaflet-map',{zoomControl:true}).setView([9.082,8.6753],6);
-const tileSat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'Tiles © Esri · Powered by Esri',maxZoom:21});
-const tileOSM=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19});
+const tileSat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'Tiles © Esri · Powered by Esri',maxZoom:21,maxNativeZoom:19});
+const tileOSM=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:21,maxNativeZoom:19});
 tileSat.addTo(lmap);
+
+// ── Max-zoom upscale badge ──
+const zoomBadge = L.control({position:'bottomleft'});
+zoomBadge.onAdd = function(){
+  const div = L.DomUtil.create('div','');
+  div.innerHTML = '<div id="zoom-upscale-badge" style="display:none;background:rgba(11,17,32,0.88);color:#F59E0B;border:1px solid rgba(245,158,11,0.4);border-radius:6px;padding:4px 10px;font-size:10px;font-weight:600;pointer-events:none">⚠ Max zoom — image upscaled from zoom 19</div>';
+  return div;
+};
+zoomBadge.addTo(lmap);
+lmap.on('zoomend',function(){
+  const badge = document.getElementById('zoom-upscale-badge');
+  if(badge) badge.style.display = lmap.getZoom() > 19 ? 'block' : 'none';
+});
+
 L.control.layers({'Satellite (Esri)':tileSat,'Street map':tileOSM},{},{position:'topright'}).addTo(lmap);
 const roofLayer=new L.FeatureGroup().addTo(lmap);
 const treeLayer=new L.FeatureGroup().addTo(lmap);
@@ -1929,7 +1943,7 @@ function _buildReportHtmlInternal(a){
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Solar Assessment — ${esc(c['Full Name']||'')} — ${a.reportId}</title>
+<title>Solar Assessment — ${(c['Full Name']||'').replace(/[<>&"]/g,'')} — ${a.reportId}</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -2234,7 +2248,7 @@ ${findingHTML}
 
 </div>
 <div style="position:fixed;bottom:20px;right:20px;display:flex;gap:8px;z-index:100;print-color-adjust:exact">
-  <button onclick="window.print()" style="background:linear-gradient(135deg,#E8880A,#0B7B6B);color:#000;font-weight:700;padding:10px 20px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-family:sans-serif;box-shadow:0 4px 14px rgba(0,0,0,0.3)">
+  <button onclick="document.title='Solar Assessment — '+document.querySelector('.cover-client-info h3').textContent.replace(/\\s*✓.*$/,'').trim()+' — '+document.querySelector('.rep-id').textContent.trim();window.print();" style="background:linear-gradient(135deg,#E8880A,#0B7B6B);color:#000;font-weight:700;padding:10px 20px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-family:sans-serif;box-shadow:0 4px 14px rgba(0,0,0,0.3)">
     🖨 Save as PDF
   </button>
   <button onclick="this.parentElement.style.display='none'" style="background:rgba(0,0,0,0.4);color:#fff;padding:10px 14px;border:1px solid rgba(255,255,255,0.2);border-radius:8px;cursor:pointer;font-size:12px;font-family:sans-serif">
