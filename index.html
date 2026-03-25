@@ -62,7 +62,7 @@ main{flex:1;display:flex;overflow:hidden}
 .ccard:hover{background:var(--card2);border-color:var(--border)}
 .ccard.active{background:var(--sun-l);border-color:rgba(245,158,11,0.35)}
 .ccard.active .cc-name{color:var(--sun)}
-.cc-name{font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px;display:flex;align-items:center;gap:5px}
+.cc-name{font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
 .cc-meta{font-size:10px;color:var(--muted2);display:flex;gap:6px;flex-wrap:wrap}
 .cc-coords{font-size:9px;color:var(--muted);font-family:monospace;margin-top:3px}
 .cc-tag{font-size:9px;font-weight:600;padding:1px 6px;border-radius:50px;margin-top:3px;display:inline-block}
@@ -78,6 +78,16 @@ main{flex:1;display:flex;overflow:hidden}
   letter-spacing:.02em;flex-shrink:0;white-space:nowrap;
 }
 .db-badge::before{content:'✓';font-size:9px;font-weight:900}
+/* Paid badge — red, shown when client phone matches PaidClients sheet */
+.paid-badge{
+  display:inline-flex;align-items:center;gap:3px;
+  background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.5);
+  color:#EF4444;border-radius:50px;
+  font-size:8px;font-weight:700;padding:1px 6px;
+  letter-spacing:.02em;flex-shrink:0;white-space:nowrap;
+  box-shadow:0 0 7px rgba(239,68,68,0.22);
+}
+.paid-badge::before{content:'✓';font-size:9px;font-weight:900}
 .lst-state{padding:28px 12px;text-align:center;color:var(--muted)}
 .lst-state .ico{font-size:2rem;margin-bottom:8px;opacity:.5}
 .lst-state p{font-size:11px;line-height:1.6}
@@ -216,6 +226,7 @@ input[type=range]{width:100%;height:3px;accent-color:var(--sun);cursor:pointer}
     <button class="btn btn-t btn-sm" id="btn-to-sim" style="display:none" onclick="goStep(3)">Simulate ›</button>
     <button class="btn btn-report btn-sm" id="btn-report" style="display:none" onclick="runAssessment()">☀ Save & Report</button>
     <button class="btn btn-s btn-sm" id="btn-view-report" style="display:none" onclick="viewReport()" title="View last generated report without re-saving">↗ View Report</button>
+    <button class="btn btn-sm" id="btn-send-report" style="display:none;background:rgba(239,68,68,0.18);color:#EF4444;border:1px solid rgba(239,68,68,0.45)" onclick="sendReportToClient()" title="Email report to client and admins">✉ Send Report</button>
   </div>
 </header>
 
@@ -237,14 +248,18 @@ input[type=range]{width:100%;height:3px;accent-color:var(--sun);cursor:pointer}
     <div class="lst-state"><div class="ico">📡</div><p>Loading registry…</p></div>
   </div>
   <!-- Legend for status indicators -->
-  <div style="padding:7px 12px;border-top:1px solid var(--border);background:var(--card2);flex-shrink:0;display:flex;gap:12px;flex-wrap:wrap">
+  <div style="padding:7px 12px;border-top:1px solid var(--border);background:var(--card2);flex-shrink:0;display:flex;gap:10px;flex-wrap:wrap">
     <div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted2)">
       <span style="display:inline-flex;align-items:center;gap:3px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.35);color:var(--green);border-radius:50px;font-size:8px;font-weight:700;padding:1px 6px">✓ In DB</span>
-      <span>Assessment in database</span>
+      <span>Assessment saved</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted2)">
+      <span style="display:inline-flex;align-items:center;gap:3px;background:rgba(239,68,68,0.18);border:1px solid rgba(239,68,68,0.5);color:#EF4444;border-radius:50px;font-size:8px;font-weight:700;padding:1px 6px">✓ Paid</span>
+      <span>Payment confirmed</span>
     </div>
     <div style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted2)">
       <span style="width:7px;height:7px;border-radius:50%;background:var(--sun);display:inline-block;flex-shrink:0"></span>
-      <span>Local work in this browser</span>
+      <span>Local work in browser</span>
     </div>
   </div>
 </div>
@@ -464,7 +479,8 @@ input[type=range]{width:100%;height:3px;accent-color:var(--sun);cursor:pointer}
 // ══════════════════════════════════════════════
 // CONFIG
 // ══════════════════════════════════════════════
-const SHEET   = 'https://opensheet.elk.sh/13hx-wNQPtBGvIDiM0nUYyAM9bvVorw2-qTi_cTPQGK0/Sheet1';
+const SHEET    = 'https://opensheet.elk.sh/13hx-wNQPtBGvIDiM0nUYyAM9bvVorw2-qTi_cTPQGK0/Sheet1';
+const PAID_SHEET = 'https://opensheet.elk.sh/13hx-wNQPtBGvIDiM0nUYyAM9bvVorw2-qTi_cTPQGK0/PaidClients';
 const SAVE_URL = 'https://script.google.com/macros/s/AKfycbwFeF-C5aF07E50QZ2S5r0iJkIXISDiRs8463G_QSa16tZ_mS08RREgxGotAkdfgbgSLQ/exec';
 
 const MONTHS  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -483,6 +499,7 @@ function isNigeria(lat,lng){
 // ══════════════════════════════════════════════
 const ST = {
   clients:[],filtered:[],activeClient:null,currentStep:1,
+  paidPhones:new Set(),   // ← phones of clients who have paid
   centroidLat:9.0,centroidLng:7.5,
   roofLatLngs:[],roofAreaM2:0,
   mapTrees:[],mapBuildings:[],
@@ -494,7 +511,6 @@ const ST = {
   timeVal:12,currentTab:'aerial',simReady:false,
   mapDrawMode:null,
   assessment:null,
-  // reportIndex: phone → [{id, date, url}] — populated from database on load
   reportIndex:{}
 };
 
@@ -567,29 +583,16 @@ function getSP(){
   };
 }
 
-// ── Compute roof shading pct at a given moment ──
-// Uses the same geometry as ground view: shadow length from building height + obstructions
-// Returns 0-100 percentage of roof area receiving direct sun
 function computeShadingPct(lat, bh, month, hour){
   const dec = DECL[month-1];
   const alt = sAlt(lat, dec, hour);
-  if(alt <= 0.5) return 0; // below/near horizon = no sun
+  if(alt <= 0.5) return 0;
   const az = sAz(lat, dec, hour);
   const azRad = toR(az-180);
   const tanA = Math.tan(toR(alt));
-  const shadowMult = 1/tanA; // shadow length = height × mult
-
-  // Roof shadow from own building: how much of the roof the shadow covers
-  // We model the roof as a unit square and compute shadow sweep
-  // Shadow of the building (height bh) cast towards azimuth direction
-  // The roof itself is above the building — self-shadow when sun is very low
-  const selfShadowFraction = Math.min(1, shadowMult * 0.15); // simplified self-shade for low angles
-
-  // Obstruction shadows: each tree/building casts shadow across part of the roof
-  // Distance from obstruction to roof centroid determines coverage fraction
-  // We use a simplified angular obstruction model
+  const shadowMult = 1/tanA;
+  const selfShadowFraction = Math.min(1, shadowMult * 0.15);
   let obstructionFraction = 0;
-
   const allObs = [
     ...ST.mapTrees.map(t=>({type:'tree',h:t.h,lat:t.lat,lng:t.lng})),
     ...ST.mapBuildings.map(b=>({type:'building',h:b.h,
@@ -599,110 +602,76 @@ function computeShadingPct(lat, bh, month, hour){
       lat:ST.centroidLat+(b.pts.reduce((s,p)=>s+p.fy,0)/b.pts.length-0.5)*0.002,
       lng:ST.centroidLng+(b.pts.reduce((s,p)=>s+p.fx,0)/b.pts.length-0.5)*0.002}))
   ];
-
   if(ST.roofLatLngs.length >= 3 && allObs.length > 0){
     const cosLat = Math.cos(toR(lat)), mPd = 111320;
     const roofSpanM = Math.sqrt(ST.roofAreaM2);
-
     allObs.forEach(obs => {
-      // Vector from obstruction to roof centroid
       const dx = (ST.centroidLng - obs.lng) * mPd * cosLat;
       const dy = (ST.centroidLat - obs.lat) * mPd;
       const dist = Math.sqrt(dx*dx + dy*dy);
-      if(dist < 1) return; // on the roof itself
-
-      // Shadow length of this obstruction
+      if(dist < 1) return;
       const sLen = obs.h * shadowMult;
-      // Shadow vector direction (shadow falls opposite to sun azimuth)
       const svx = Math.sin(azRad) * sLen;
       const svy = -Math.cos(azRad) * sLen;
-
-      // Does shadow tip reach or pass the roof?
-      // Check if shadow projection overlaps roof area
-      // Shadow hits roof if the shadow vector from obstruction points toward roof centroid
       const dotX = dx * svx + dy * svy;
       const shadowDist = Math.sqrt(svx*svx + svy*svy);
       if(shadowDist < 1) return;
-
-      // Fraction of roof covered by this shadow
-      // Angular width of obstruction as seen from roof / angular width of roof
-      const obsWidth = obs.type==='tree' ? 4 : 8; // effective width in meters
+      const obsWidth = obs.type==='tree' ? 4 : 8;
       const angularCover = Math.atan2(obsWidth, dist);
       const roofAngle = Math.atan2(roofSpanM, dist);
       const coverFrac = Math.min(0.85, angularCover / Math.max(roofAngle, 0.1));
-
-      // Only count if shadow actually reaches the roof
-      // Check alignment between shadow direction and obstruction-to-roof direction
       const roofDir = Math.atan2(dy, dx);
       const shadowDir = Math.atan2(svy, svx);
       const angleDiff = Math.abs(roofDir - shadowDir);
       const normalised = Math.min(angleDiff, Math.PI*2 - angleDiff);
-
       if(normalised < Math.PI/3 && sLen > dist * 0.7){
         obstructionFraction = Math.min(0.95, obstructionFraction + coverFrac * (1 - normalised/(Math.PI/3)));
       }
     });
   }
-
   const totalShaded = Math.min(0.98, selfShadowFraction + obstructionFraction);
   return Math.round((1 - totalShaded) * 100);
 }
 
-// ── Compute full 12×24 shading matrix ──
 function computeMatrix(lat, bh){
-  const matrix = []; // matrix[month_idx][hour_idx]
-  const hours = Array.from({length:19},(_,i)=>i+5); // 05:00 to 23:00
-
+  const matrix = [];
+  const hours = Array.from({length:19},(_,i)=>i+5);
   for(let m=0;m<12;m++){
     const row = [];
-    for(const h of hours){
-      row.push(computeShadingPct(lat, bh, m+1, h));
-    }
+    for(const h of hours){ row.push(computeShadingPct(lat, bh, m+1, h)); }
     matrix.push(row);
   }
   return{matrix, hours};
 }
 
-// ── Compute monthly peak sun hours from matrix ──
-// Peak sun hours = sum of (shading_pct/100) per hour per day
-// This represents the effective sun-weighted hours
 function computePeakSunHours(matrix, lat){
   const psh = [];
   for(let m=0;m<12;m++){
     const dec = DECL[m];
     const rise = sunriseH(lat,dec);
     const set = rise!=null ? 24-rise : null;
-    const daylightHrs = rise!=null&&set!=null ? set-rise : 0;
-    // Sum weighted irradiance across the day
-    // At each hour, the sun fraction of roof in sun * sin(altitude) gives effective irradiance weight
     let pshSum = 0;
     for(let hi=0;hi<matrix[m].length;hi++){
       const h = 5 + hi;
       const alt = sAlt(lat, dec, h);
       if(alt > 0){
         const shadeFrac = matrix[m][hi] / 100;
-        // Weight by sin(altitude) to account for angle of incidence, approximate 1hr slot
         const weight = Math.sin(toR(alt));
         pshSum += shadeFrac * weight;
       }
     }
-    // Normalise to peak sun hours (1 PSH = 1 hour of 1000W/m² equivalent)
-    // For Nigeria, multiply by empirical factor based on clear-sky irradiance
-    const clearSkyFactor = 1 + 0.3 * Math.sin(toR((m+1)*30)); // seasonal variation
+    const clearSkyFactor = 1 + 0.3 * Math.sin(toR((m+1)*30));
     psh.push(Math.max(0, +(pshSum * 1.85 * clearSkyFactor).toFixed(1)));
   }
   return psh;
 }
 
-// ── Season label for a given month, locale-aware ──
 function getSeasonLabel(monthIdx, lat, lng){
   const ng = isNigeria(lat, lng);
   if(ng){
-    // Nigeria: Dry Nov-Mar, Rainy Apr-Oct (simplified, varies slightly by region)
-    const DRY = [10,11,0,1,2]; // Nov Dec Jan Feb Mar (0-indexed)
+    const DRY = [10,11,0,1,2];
     return DRY.includes(monthIdx) ? 'Dry Season' : 'Rainy Season';
   }
-  // Southern hemisphere flip
   const flip = lat < 0;
   const idx = flip ? (monthIdx+6)%12 : monthIdx;
   if(idx>=2&&idx<=4) return 'Spring';
@@ -711,37 +680,26 @@ function getSeasonLabel(monthIdx, lat, lng){
   return 'Winter';
 }
 
-// ── Find key scenario moments ──
 function findKeyMoments(matrix, lat, lng){
   const bh = +document.getElementById('sl-bh').value;
-  // Best case: month + hour with highest shading pct
   let bestPct=0, bestM=5, bestH=12;
-  // Worst case: month with lowest daily average at solar noon
   let worstPct=100, worstM=11, worstH=12;
-  // Worst morning: earliest significant shading from obstructions
   let worstMorningPct=100, worstMorningM=0, worstMorningH=8;
-
   for(let m=0;m<12;m++){
     for(let hi=0;hi<matrix.length;hi++){
-      const h = 5+hi;
-      const pct = matrix[m][hi];
+      const h = 5+hi, pct = matrix[m][hi];
       if(pct>bestPct){bestPct=pct;bestM=m;bestH=h;}
     }
-    // Noon check (index 7 = hour 12)
     const noonPct = matrix[m][7];
     if(noonPct < worstPct){worstPct=noonPct;worstM=m;}
-    // Morning check (index 3 = hour 8)
     const morningPct = matrix[m][3];
     if(morningPct < worstMorningPct){worstMorningPct=morningPct;worstMorningM=m;worstMorningH=8;}
   }
-
-  // Best afternoon window (14:00 = index 9)
   let bestAfternoonPct=0, bestAfternoonM=4;
   for(let m=0;m<12;m++){
     const pct = matrix[m][9];
     if(pct>bestAfternoonPct){bestAfternoonPct=pct;bestAfternoonM=m;}
   }
-
   return[
     {label:'Best sun — peak conditions', month:bestM, hour:bestH, pct:bestPct, season:getSeasonLabel(bestM,lat,lng)},
     {label:'Lowest sun — worst case', month:worstM, hour:12, pct:worstPct, season:getSeasonLabel(worstM,lat,lng)},
@@ -750,7 +708,6 @@ function findKeyMoments(matrix, lat, lng){
   ];
 }
 
-// ── Analyse obstructions and generate findings ──
 function analyseObstructions(lat, lng, matrix){
   const findings = [];
   const allObs = [
@@ -759,67 +716,51 @@ function analyseObstructions(lat, lng, matrix){
       lat:b.latLngs.reduce((s,p)=>s+p.lat,0)/b.latLngs.length,
       lng:b.latLngs.reduce((s,p)=>s+p.lng,0)/b.latLngs.length}))
   ];
-
   if(allObs.length === 0){
     findings.push({type:'positive',title:'No obstructions mapped',body:'No neighbouring trees or buildings were identified on the satellite map. The roof has clear sky access from all directions. This is an ideal installation site.'});
     return findings;
   }
-
   const cosLat = Math.cos(toR(lat)), mPd = 111320;
   allObs.forEach(obs=>{
     const dx=(obs.lng-ST.centroidLng)*mPd*cosLat;
     const dy=(obs.lat-ST.centroidLat)*mPd;
     const dist=Math.round(Math.sqrt(dx*dx+dy*dy));
-
-    // Determine bearing of obstruction from roof
     const bearing = toDeg(Math.atan2(dx, dy));
     const bearingNorm = (bearing + 360) % 360;
     const dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
     const dirLabel = dirs[Math.round(bearingNorm/22.5)%16];
-
-    // How much does it affect morning vs afternoon vs both?
     const morningImpact = obs.h / (dist * Math.tan(toR(20)));
     const impact = morningImpact > 0.5 ? 'critical' : morningImpact > 0.2 ? 'warning' : 'positive';
-
     const impactPeriod = bearingNorm < 90 || bearingNorm > 270
       ? 'Morning hours (sun rises in east)'
       : bearingNorm > 90 && bearingNorm < 270
       ? 'Afternoon hours (sun sets in west)'
       : 'Midday hours';
-
-    const shadowLen = Math.round(obs.h * (1/Math.tan(toR(45)))); // shadow at 45° as reference
+    const shadowLen = Math.round(obs.h * (1/Math.tan(toR(45))));
     findings.push({
       type:impact,
       title:`${obs.type==='tree'?'🌳':'🏢'} ${obs.name} — ${dirLabel} of roof, ${dist}m away`,
       body:`This ${obs.h}m ${obs.type} is located to the ${dirLabel} approximately ${dist}m from the roof centroid. It will primarily affect ${impactPeriod.toLowerCase()}. At a 45° sun angle, its shadow extends approximately ${shadowLen}m. ${impact==='critical'?'Panel placement should avoid the '+dirLabel+' section of the roof.':impact==='warning'?'Minor impact on generation — manageable with correct panel placement.':'Impact is minimal due to sufficient distance or low height.'}`
     });
   });
-
-  // General positive finding if good sun hours
-  const junePct = matrix[5][7]; // June noon
+  const junePct = matrix[5][7];
   if(junePct > 80){
     findings.push({type:'positive',title:'✅ South-facing roof area largely unobstructed',body:`At solar noon during peak months, ${junePct}% of the roof receives direct sunlight. The south and south-westerly sections are the primary recommended zone for panel placement.`});
   }
   return findings;
 }
 
-// ── Recommend panel zone and system sizing ──
 function generateRecommendations(psh, matrix, lat, lng, roofArea, bh, client){
   const avgPsh = +(psh.reduce((a,b)=>a+b,0)/12).toFixed(1);
   const peakPsh = Math.max(...psh);
   const worstPsh = Math.min(...psh);
   const peakMonth = MONTHS[psh.indexOf(peakPsh)];
   const worstMonth = MONTHS[psh.indexOf(worstPsh)];
-  const usableArea = +(roofArea * 0.74).toFixed(1); // typical 74% usable factor
+  const usableArea = +(roofArea * 0.74).toFixed(1);
   const goal = +(client['Coverage Level']||70);
-  const consumption = +(client['Avg Consumption Value']||0);
-  const unit = (client['Avg Consumption Unit']||'naira').toLowerCase();
   const ng = isNigeria(lat, lng);
-
-  // Rough system sizing: 1 kWp ≈ 5-6 panels ≈ 9-10m²
   const kWp = +(usableArea / 9.5).toFixed(1);
-  const estKwh = +(avgPsh * kWp * 0.8 * 30).toFixed(0); // monthly kWh estimate, 80% system eff
-
+  const estKwh = +(avgPsh * kWp * 0.8 * 30).toFixed(0);
   const recs = [];
   recs.push({num:1, text:`<strong>Primary panel zone:</strong> The south and south-westerly sections of the roof polygon — approximately ${usableArea} m² of the ${roofArea.toFixed(0)} m² total — receive the most consistent direct sunlight year-round.`});
   if(ST.mapTrees.length>0){
@@ -848,8 +789,8 @@ function goStep(n){
   document.getElementById('btn-to-map').style.display=n===3?'':'none';
   document.getElementById('btn-to-sim').style.display=n===2?'':'none';
   document.getElementById('btn-report').style.display=n===3?'':'none';
-  // Show "View Report" only if an assessment has already been generated this session
   document.getElementById('btn-view-report').style.display=(n===3&&ST.assessment)?'':'none';
+  document.getElementById('btn-send-report').style.display=(n===3&&ST.assessment)?'':'none';
 }
 
 // ══════════════════════════════════════════════
@@ -857,6 +798,123 @@ function goStep(n){
 // ══════════════════════════════════════════════
 function setDbStatus(s,m){document.getElementById('db-dot').className='db-dot '+s;document.getElementById('db-lbl').textContent=m;}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ── normalise a phone string for cross-reference matching ──
+// Strips all non-digit characters so "08012345678" matches "+2348012345678" etc.
+function normPhone(p){return String(p||'').trim().replace(/\D/g,'');}
+
+// ── Fetch the PaidClients sheet and build ST.paidPhones ──
+
+// ══════════════════════════════════════════════
+// EMAIL REPORT TO CLIENT + ADMINS
+// ══════════════════════════════════════════════
+const ADMIN_EMAILS = ['edmundezie@gmail.com', 'catfishinvestor@gmail.com'];
+
+// Manual "Send Report" button handler
+function sendReportToClient(){
+  if(!ST.assessment){toast('Generate a report first.');return;}
+  if(!ST.activeClient){toast('No client loaded.');return;}
+  const clientEmail = ST.activeClient.Email||'';
+  const isPaid = clientHasPaid(ST.activeClient);
+  const recipients = [...ADMIN_EMAILS];
+  if(clientEmail) recipients.push(clientEmail);
+  if(!clientEmail && !isPaid){
+    const ok = confirm(
+      'No client email on record for '+ST.activeClient['Full Name']+'\n\n'+
+      'Report will be sent to admins only:\n'+ADMIN_EMAILS.join(', ')+'\n\nProceed?'
+    );
+    if(!ok) return;
+  }
+  dispatchReportEmail(ST.assessment, ST.activeClient, recipients, 'manual');
+}
+
+// Auto-send when client is paid and report has just been generated
+function autoSendIfPaid(assessment, client){
+  if(!clientHasPaid(client)) return;
+  const clientEmail = client.Email||'';
+  const recipients = [...ADMIN_EMAILS];
+  if(clientEmail) recipients.push(clientEmail);
+  dispatchReportEmail(assessment, client, recipients, 'auto');
+}
+
+// Core email dispatch — posts to Apps Script which sends via GmailApp
+async function dispatchReportEmail(assessment, client, recipients, trigger){
+  const clientName = client['Full Name']||'Client';
+  const reportId   = assessment.reportId;
+  const avgPsh     = +(assessment.psh.reduce((a,b)=>a+b,0)/12).toFixed(1);
+  const roofAreaM2 = ST.roofAreaM2;
+  const usable     = +(roofAreaM2*0.74).toFixed(1);
+  const isPaid     = clientHasPaid(client);
+
+  setDbStatus('spin','Sending email…');
+  toast('Sending report to '+recipients.length+' recipient'+(recipients.length!==1?'s':'')+'…');
+
+  try {
+    await fetch(SAVE_URL, {
+      method:'POST',
+      mode:'no-cors',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({
+        action:         'sendReportEmail',
+        'Report ID':    reportId,
+        'Client Name':  clientName,
+        'Client Phone': client.Phone||'',
+        'Client Email': client.Email||'',
+        'Client State': client.State||'',
+        'Client Address': client.Address||'',
+        'Roof Area M2': roofAreaM2.toFixed(1),
+        'Usable Area M2': usable,
+        'Avg PSH':      avgPsh,
+        'Best PSH':     Math.max(...assessment.psh),
+        'Worst PSH':    Math.min(...assessment.psh),
+        'Coverage Goal': client['Coverage Level']||'—',
+        'Is Paid':      isPaid?'Yes':'No',
+        'Report Date':  assessment.date,
+        'Report Time':  assessment.time,
+        'Is Nigeria':   assessment.nigeria?'Yes':'No',
+        'Trigger':      trigger,
+        'Recipients':   recipients.join(','),
+        // Include the report URL if it was saved to Drive
+        'Report URL':   '',
+      }).toString()
+    });
+    setDbStatus('ok','Email sent ✓');
+    toast('✓ Report emailed to: '+recipients.join(', '));
+  } catch(e){
+    console.warn('Email dispatch failed:',e);
+    setDbStatus('ok','Email failed');
+    toast('⚠ Email dispatch failed — check Apps Script logs.');
+  }
+}
+
+
+async function loadPaidClients(){
+  try{
+    const r=await fetch(PAID_SHEET,{method:'GET',mode:'cors'});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const data=await r.json();
+    ST.paidPhones=new Set();
+    data.forEach(row=>{
+      // Accept any plausible column name for phone
+      const raw=String(
+        row.Phone||row.phone||row['Phone Number']||row['PhoneNumber']||
+        row['PHONE']||row['Client Phone']||row['ClientPhone']||''
+      ).trim();
+      if(!raw) return;
+      ST.paidPhones.add(raw);            // exact raw match
+      ST.paidPhones.add(normPhone(raw)); // digits-only match
+    });
+    renderClients(); // refresh list so badges appear immediately
+  }catch(e){
+    console.warn('PaidClients fetch failed:',e);
+  }
+}
+
+// ── Helper: does a client's phone match any paid entry? ──
+function clientHasPaid(c){
+  const raw = String(c.Phone||'').trim();
+  return ST.paidPhones.has(raw) || ST.paidPhones.has(normPhone(raw));
+}
 
 async function loadClients(){
   setDbStatus('spin','Fetching…');
@@ -870,6 +928,8 @@ async function loadClients(){
     setDbStatus('ok',ST.clients.length+' clients');
     renderClients();
     toast('Registry synced — '+ST.clients.length+' clients.');
+    // Refresh paid status whenever registry is resynced
+    loadPaidClients();
   }catch(err){
     setDbStatus('err','Failed');
     document.getElementById('clist').innerHTML='<div class="lst-state"><div class="ico">⚠️</div><p>Connection failed.<br>Click Refresh to retry.</p></div>';
@@ -889,16 +949,17 @@ function renderClients(){
   el.innerHTML=ST.filtered.map((c,i)=>{
     const isActive=ST.activeClient&&ST.activeClient.Phone===c.Phone&&ST.activeClient['Full Name']===c['Full Name'];
     const hasSaved=!!localStorage.getItem(clientKey(c));
-    // Look up by phone+name combination — prevents false matches when multiple clients share a phone number
     const dbKey = String(c.Phone||'').trim() + '|' + String(c['Full Name']||'').trim();
     const reports=ST.reportIndex[dbKey]||[];
     const latestReport=reports[0]||null;
     const hasDB=reports.length>0;
+    const hasPaid=clientHasPaid(c);   // ← NEW
     const cov=c['Coverage Level']||'';
     return `<div class="ccard${isActive?' active':''}" onclick="selectClient(${i})">
       <div class="cc-name">
         ${esc(c['Full Name'])}
         ${hasDB?`<span class="db-badge" title="${reports.length} assessment${reports.length>1?'s':''} in database · ${latestReport.date}"> In DB</span>`:''}
+        ${hasPaid?`<span class="paid-badge" title="Payment confirmed for ${esc(c['Full Name']||'')}"> Paid</span>`:''}
         ${hasSaved&&!hasDB?`<span class="saved-dot" title="Local work saved in this browser"></span>`:''}
         ${hasSaved&&hasDB?`<span class="saved-dot" title="Also has local work in this browser"></span>`:''}
       </div>
@@ -921,7 +982,6 @@ function renderClients(){
   }).join('');
 }
 
-// Open a stored report for a client — fetches from database and regenerates
 function openClientReport(phone, reportId){
   loadAndViewReport(phone, reportId);
 }
@@ -931,18 +991,13 @@ function openClientReport(phone, reportId){
 // ══════════════════════════════════════════════
 function selectClient(idx){
   const c=ST.filtered[idx];if(!c)return;
-
-  // Check if this client already has a database assessment
   const existingReports = ST.reportIndex[String(c.Phone||'').trim()+'|'+String(c['Full Name']||'').trim()]||[];
   if(existingReports.length > 0 && (!ST.activeClient || ST.activeClient.Phone !== c.Phone)){
-    // Show a non-blocking notice in the client bar — developer can still proceed
-    // but is aware data exists. We don't block the workflow, just inform clearly.
     const latest = existingReports[0];
     setTimeout(()=>{
       toast(`ℹ ${c['Full Name']} already has ${existingReports.length} saved assessment${existingReports.length>1?'s':''} (${latest.date}). Use 📋 View Report to load existing, or proceed to create a new one.`, 6000);
     }, 500);
   }
-
   if(ST.activeClient)saveWork();
   ST.activeClient=c;
   ST.centroidLat=parseFloat(c.Latitude);
@@ -956,10 +1011,12 @@ function selectClient(idx){
   document.getElementById('cbar-name').textContent=c['Full Name'];
   document.getElementById('cbar-addr').textContent=(c.Address||'')+' · '+c.Phone+(c.Email?' · '+c.Email:'');
   const cov=c['Coverage Level']||'—';
+  const hasPaid=clientHasPaid(c);
   document.getElementById('cbar-chips').innerHTML=
     `<span class="chip teal">${esc(c.State||'—')}</span><span class="chip">${esc(c['Property Type']||'—')}</span>
      <span class="chip">${esc(c['Meter Type']||'—')}</span><span class="chip sun">☀ ${cov}% goal</span>
-     <span class="chip">👥 ${c.Occupants||'—'}</span>${c['Avg Consumption Value']?`<span class="chip">⚡ ${c['Avg Consumption Value']} ${c['Avg Consumption Unit']||''}/mo</span>`:''}`;
+     <span class="chip">👥 ${c.Occupants||'—'}</span>${c['Avg Consumption Value']?`<span class="chip">⚡ ${c['Avg Consumption Value']} ${c['Avg Consumption Unit']||''}/mo</span>`:''}
+     ${hasPaid?'<span class="chip" style="background:rgba(239,68,68,0.18);border-color:rgba(239,68,68,0.45);color:#EF4444">✓ Paid</span>':''}`;
 
   renderClients();
   goStep(2);
@@ -978,7 +1035,7 @@ function selectClient(idx){
       ?`Saved site loaded — ${ST.mapTrees.length} trees, ${ST.mapBuildings.length} buildings. Click "Run Simulation" or keep drawing.`
       :`Arrived at ${c['Full Name']}'s site. Start with the roof polygon, then mark trees and nearby buildings.`);
   },150);
-  toast('Loaded: '+c['Full Name']);
+  toast('Loaded: '+c['Full Name']+(hasPaid?' · ✓ Paid':''));
 }
 
 // ══════════════════════════════════════════════
@@ -1385,7 +1442,6 @@ function drawAerial(ctx,W,H,sp,tf,pad){
   ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=1;
   ctx.beginPath();if(ctx.roundRect)ctx.roundRect(pad,pad,W-pad*2,H-pad*2,10);else ctx.rect(pad,pad,W-pad*2,H-pad*2);ctx.stroke();
 
-  // Legend
   const legItems=[['#c8966e','Roof'],['#2d6a1a','Real tree'],['#8B5CF6','Real bldg'],['rgba(34,197,94,0.5)','Planned tree'],['rgba(251,191,36,0.5)','Planned bldg']];
   let legX=pad+8,legY=H-pad-6;
   legItems.forEach(([col,lbl])=>{
@@ -1397,7 +1453,6 @@ function drawAerial(ctx,W,H,sp,tf,pad){
   if(ctx===actx)ctx.restore();
 }
 
-// Default aerial draw wraps the full version
 function _drawAerial(){
   if(!ST.simReady)return;
   const dpr=window.devicePixelRatio||1,W=cvA.width/dpr,H=cvA.height/dpr,pad=36;
@@ -1484,7 +1539,6 @@ function drawGroundScene(ctx,W,H,sp,bh){
 // ══════════════════════════════════════════════
 // CANVAS SCREENSHOT CAPTURE
 // ══════════════════════════════════════════════
-// Renders a simulation frame to an offscreen canvas and returns dataURL
 function captureFrame(month, hour, view){
   return new Promise(resolve=>{
     const W=800,H=view==='aerial'?400:300,pad=36;
@@ -1499,11 +1553,9 @@ function captureFrame(month, hour, view){
     const sp={month:month+1,lat,t:hour,dec,alt,az,
       dayHrs:rise!=null&&set!=null?(set-rise).toFixed(1):'0',
       sm:alt>1?(1/Math.tan(toR(alt))).toFixed(1):null};
-
     if(view==='aerial'){
       const tf=getSceneTF(W,H,pad);
       drawAerial(octx,W,H,sp,tf,pad);
-      // Draw compass on the captured frame
       drawCompass(az,octx,W-36,36,22);
     } else {
       drawGroundScene(octx,W,H,sp,+bh);
@@ -1524,7 +1576,6 @@ async function runAssessment(){
   if(!ST.activeClient){toast('No client loaded.');return;}
   if(ST.roofLatLngs.length<3){toast('Roof polygon required before generating report.');return;}
 
-  // ── Duplicate check — warn if client already has a saved assessment ──
   const existingReports = ST.reportIndex[String(ST.activeClient.Phone||'').trim()+'|'+String(ST.activeClient['Full Name']||'').trim()]||[];
   if(existingReports.length > 0){
     const latest = existingReports[0];
@@ -1539,9 +1590,6 @@ async function runAssessment(){
       return;
     }
   }
-  // Browsers only allow window.open() from a direct user gesture.
-  // Any await after the click breaks that trust chain and triggers popup blocking.
-  // We open the window now with a loading screen, then write the real content when ready.
   const reportWin = window.open('','_blank');
   if(!reportWin){
     toast('⚠ Popup blocked — please allow popups for this page and try again.');
@@ -1556,7 +1604,6 @@ async function runAssessment(){
     <div style="font-size:0.8rem;color:#64748B">This window will update automatically</div></body></html>`);
   reportWin.document.close();
 
-  // Show progress modal
   const modal=document.getElementById('progress-modal');
   modal.classList.add('show');
   document.getElementById('prog-title').textContent='Running Assessment…';
@@ -1568,45 +1615,37 @@ async function runAssessment(){
   const lat=+document.getElementById('sl-lat').value;
   const bh=+document.getElementById('sl-bh').value;
 
-  // ── STEP 1: Compute shading matrix ──
   setProgress(10,'Computing 12-month × 24-hour shading matrix…');
   await new Promise(r=>setTimeout(r,50));
   const{matrix,hours}=computeMatrix(lat,bh);
 
-  // ── STEP 2: Peak sun hours ──
   setProgress(25,'Calculating monthly peak sun hours…');
   await new Promise(r=>setTimeout(r,30));
   const psh=computePeakSunHours(matrix,lat);
 
-  // ── STEP 3: Key moments ──
   setProgress(35,'Identifying key solar moments…');
   await new Promise(r=>setTimeout(r,30));
   const keyMoments=findKeyMoments(matrix,lat,ST.centroidLng);
 
-  // ── STEP 4: Obstruction analysis ──
   setProgress(45,'Analysing obstruction impacts…');
   await new Promise(r=>setTimeout(r,30));
   const findings=analyseObstructions(lat,ST.centroidLng,matrix);
 
-  // ── STEP 5: Recommendations ──
   setProgress(52,'Generating recommendations…');
   await new Promise(r=>setTimeout(r,30));
   const recs=generateRecommendations(psh,matrix,lat,ST.centroidLng,ST.roofAreaM2,bh,ST.activeClient);
 
-  // ── STEP 6: Capture screenshots ──
   setProgress(58,'Capturing aerial screenshots…');
   document.getElementById('prog-sub').textContent='Rendering 6 key simulation frames';
   await new Promise(r=>setTimeout(r,30));
 
   const screenshots={};
-  // Aerial: best, worst, morning, afternoon
   for(let i=0;i<keyMoments.length;i++){
     const km=keyMoments[i];
     setProgress(58+i*6,'Capturing: '+km.label);
     screenshots['aerial_'+i]=await captureFrame(km.month,km.hour,'aerial');
     await new Promise(r=>setTimeout(r,20));
   }
-  // Ground: best and worst
   setProgress(83,'Capturing ground view — peak sun');
   screenshots['ground_best']=await captureFrame(keyMoments[0].month,keyMoments[0].hour,'ground');
   await new Promise(r=>setTimeout(r,20));
@@ -1614,7 +1653,6 @@ async function runAssessment(){
   screenshots['ground_worst']=await captureFrame(keyMoments[1].month,keyMoments[1].hour,'ground');
   await new Promise(r=>setTimeout(r,20));
 
-  // ── STEP 7: Save to registry ──
   setProgress(91,'Saving assessment data to Google Sheets…');
   document.getElementById('prog-sub').textContent='Step 1 of 2 — Writing assessment row to registry';
   await new Promise(r=>setTimeout(r,50));
@@ -1622,195 +1660,126 @@ async function runAssessment(){
   const reportId='SSA-'+Date.now().toString(36).toUpperCase();
   const now=new Date();
 
-  // ── Build the full assessment payload matching Apps Script column definitions ──
   const assessmentData={
-    action:            'saveAssessment',
-    // Identifiers
-    'Report ID':       reportId,
-    'Assessment Date': now.toLocaleDateString('en-GB'),
-    'Assessment Time': now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
-    // Client — pulled directly from registry record
-    'Client Name':     ST.activeClient['Full Name']||'',
-    'Client Phone':    ST.activeClient.Phone||'',
-    'Client Email':    ST.activeClient.Email||'',
-    'Client State':    ST.activeClient.State||'',
-    'Client Address':  ST.activeClient.Address||'',
-    'Property Type':   ST.activeClient['Property Type']||'',
-    'Occupants':       ST.activeClient.Occupants||'',
-    'Meter Type':      ST.activeClient['Meter Type']||'',
-    'Distribution Band': ST.activeClient['Distribution Band']||'',
-    'Monthly Consumption Value': ST.activeClient['Avg Consumption Value']||'',
-    'Monthly Consumption Unit':  ST.activeClient['Avg Consumption Unit']||'naira',
-    'Coverage Goal %': ST.activeClient['Coverage Level']||'',
-    // Site geometry
-    'Latitude':        ST.centroidLat,
-    'Longitude':       ST.centroidLng,
-    'Is Nigeria':      isNigeria(ST.centroidLat,ST.centroidLng)?'Yes':'No',
-    'Roof Area M2':    ST.roofAreaM2.toFixed(1),
-    'Building Height': bh,
-    // Obstruction counts
-    'Tree Count':      ST.mapTrees.length,
-    'Building Count':  ST.mapBuildings.length,
-    // Computed solar data — all from the real simulation
-    'Avg Peak Sun Hours': +(psh.reduce((a,b)=>a+b,0)/12).toFixed(2),
-    'Best Month PSH':     Math.max(...psh),
-    'Worst Month PSH':    Math.min(...psh),
-    // Key moments season labels
-    'Key Moments JSON':   JSON.stringify(keyMoments.map(km=>({
-      label:km.label, month:km.month, hour:km.hour,
-      pct:km.pct, season:km.season
-    }))),
-    // Geometry JSON blobs
-    'Roof Polygon JSON':      JSON.stringify(ST.roofLatLngs),
-    'Trees JSON':             JSON.stringify(ST.mapTrees.map(t=>({lat:t.lat,lng:t.lng,h:t.h,id:t.id}))),
-    'Buildings JSON':         JSON.stringify(ST.mapBuildings.map(b=>({latLngs:b.latLngs,h:b.h,name:b.name}))),
-    'Future Trees JSON':      JSON.stringify(ST.futureTrees),
-    'Future Buildings JSON':  JSON.stringify(ST.futureBuildings.map(b=>({pts:b.pts,h:b.h,name:b.name}))),
-    // Full computed data
-    'PSH JSON':               JSON.stringify(psh),
-    'Shading Matrix JSON':    JSON.stringify(matrix)
+    action:'saveAssessment',
+    'Report ID':reportId,
+    'Assessment Date':now.toLocaleDateString('en-GB'),
+    'Assessment Time':now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
+    'Client Name':ST.activeClient['Full Name']||'',
+    'Client Phone':ST.activeClient.Phone||'',
+    'Client Email':ST.activeClient.Email||'',
+    'Client State':ST.activeClient.State||'',
+    'Client Address':ST.activeClient.Address||'',
+    'Property Type':ST.activeClient['Property Type']||'',
+    'Occupants':ST.activeClient.Occupants||'',
+    'Meter Type':ST.activeClient['Meter Type']||'',
+    'Distribution Band':ST.activeClient['Distribution Band']||'',
+    'Monthly Consumption Value':ST.activeClient['Avg Consumption Value']||'',
+    'Monthly Consumption Unit':ST.activeClient['Avg Consumption Unit']||'naira',
+    'Coverage Goal %':ST.activeClient['Coverage Level']||'',
+    'Latitude':ST.centroidLat,
+    'Longitude':ST.centroidLng,
+    'Is Nigeria':isNigeria(ST.centroidLat,ST.centroidLng)?'Yes':'No',
+    'Roof Area M2':ST.roofAreaM2.toFixed(1),
+    'Building Height':bh,
+    'Tree Count':ST.mapTrees.length,
+    'Building Count':ST.mapBuildings.length,
+    'Avg Peak Sun Hours':+(psh.reduce((a,b)=>a+b,0)/12).toFixed(2),
+    'Best Month PSH':Math.max(...psh),
+    'Worst Month PSH':Math.min(...psh),
+    'Key Moments JSON':JSON.stringify(keyMoments.map(km=>({label:km.label,month:km.month,hour:km.hour,pct:km.pct,season:km.season}))),
+    'Roof Polygon JSON':JSON.stringify(ST.roofLatLngs),
+    'Trees JSON':JSON.stringify(ST.mapTrees.map(t=>({lat:t.lat,lng:t.lng,h:t.h,id:t.id}))),
+    'Buildings JSON':JSON.stringify(ST.mapBuildings.map(b=>({latLngs:b.latLngs,h:b.h,name:b.name}))),
+    'Future Trees JSON':JSON.stringify(ST.futureTrees),
+    'Future Buildings JSON':JSON.stringify(ST.futureBuildings.map(b=>({pts:b.pts,h:b.h,name:b.name}))),
+    'PSH JSON':JSON.stringify(psh),
+    'Shading Matrix JSON':JSON.stringify(matrix)
   };
 
-  // ── POST 1: Save assessment row ──
-  let saveOk=false, saveError='';
+  let saveOk=false;
   try {
-    const saveResp = await fetch(SAVE_URL, {
-      method:'POST',
-      mode:'no-cors',
-      headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body:new URLSearchParams(assessmentData).toString()
-    });
-    // no-cors returns opaque — assume success if no throw
+    await fetch(SAVE_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(assessmentData).toString()});
     saveOk=true;
     setProgress(94,'Assessment data saved ✓');
-  } catch(e){
-    saveError=e.toString();
-    console.warn('Assessment save failed:',e);
-  }
+  } catch(e){console.warn('Assessment save failed:',e);}
 
-  // ── POST 2: Save screenshots to Drive ──
-  let screenshotsSaved=0, screenshotsError='';
+  let screenshotsSaved=0;
   if(saveOk){
     setProgress(95,'Uploading screenshots to Drive…');
     document.getElementById('prog-sub').textContent='Saving 6 simulation images to Google Drive';
     await new Promise(r=>setTimeout(r,30));
     try {
-      // Build screenshot payload — include base64 PNG + metadata for each frame
-      const screenshotData = {
-        action:       'saveScreenshots',
-        'Report ID':  reportId,
-        'Client Phone': ST.activeClient.Phone||'',
-        'Client Name':  ST.activeClient['Full Name']||''
-      };
-      // Add each frame image + its metadata
-      const frameKeys = ['aerial_0','aerial_1','aerial_2','aerial_3','ground_best','ground_worst'];
-      frameKeys.forEach((key, i) => {
-        if(screenshots[key]) {
-          screenshotData[key] = screenshots[key]; // base64 PNG dataURL
-          const km = i < 4 ? keyMoments[i] : keyMoments[i===4?0:1];
-          screenshotData[key+'_month']  = km ? MONTHS[km.month] : '';
-          screenshotData[key+'_hour']   = km ? km.hour : '';
-          screenshotData[key+'_season'] = km ? km.season : '';
-          screenshotData[key+'_pct']    = km ? km.pct : '';
-          screenshotData[key+'_alt']    = km
-            ? Math.round(sAlt(+document.getElementById('sl-lat').value, DECL[km.month], km.hour))
-            : '';
+      const screenshotData={action:'saveScreenshots','Report ID':reportId,'Client Phone':ST.activeClient.Phone||'','Client Name':ST.activeClient['Full Name']||''};
+      const frameKeys=['aerial_0','aerial_1','aerial_2','aerial_3','ground_best','ground_worst'];
+      frameKeys.forEach((key,i)=>{
+        if(screenshots[key]){
+          screenshotData[key]=screenshots[key];
+          const km=i<4?keyMoments[i]:keyMoments[i===4?0:1];
+          screenshotData[key+'_month']=km?MONTHS[km.month]:'';
+          screenshotData[key+'_hour']=km?km.hour:'';
+          screenshotData[key+'_season']=km?km.season:'';
+          screenshotData[key+'_pct']=km?km.pct:'';
+          screenshotData[key+'_alt']=km?Math.round(sAlt(+document.getElementById('sl-lat').value,DECL[km.month],km.hour)):'';
         }
       });
-
-      await fetch(SAVE_URL, {
-        method:'POST',
-        mode:'no-cors',
-        headers:{'Content-Type':'application/x-www-form-urlencoded'},
-        // Screenshots are large — send as JSON string to avoid URL encoding issues
-        body: new URLSearchParams({
-          action: 'saveScreenshots',
-          payload: JSON.stringify(screenshotData)
-        }).toString()
-      });
-      screenshotsSaved = 6;
+      await fetch(SAVE_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({action:'saveScreenshots',payload:JSON.stringify(screenshotData)}).toString()});
+      screenshotsSaved=6;
       setProgress(97,'Screenshots uploaded ✓');
-    } catch(e) {
-      screenshotsError = e.toString();
-      console.warn('Screenshot save failed:',e);
-    }
+    } catch(e){console.warn('Screenshot save failed:',e);}
   }
 
-  // ── POST 3: Save report HTML to Drive ──
   setProgress(98,'Saving report to Drive…');
   document.getElementById('prog-sub').textContent='Step 3 of 3 — Storing report HTML in Google Drive';
   await new Promise(r=>setTimeout(r,30));
 
-  // ── Build ST.assessment FIRST — buildReportHtml reads from this ──
   ST.assessment={
-    reportId, matrix, hours, psh, keyMoments, findings, recs, screenshots,
-    lat: ST.centroidLat,
-    lng: ST.centroidLng,
-    bh, saveOk, screenshotsSaved,
+    reportId,matrix,hours,psh,keyMoments,findings,recs,screenshots,
+    lat:ST.centroidLat,lng:ST.centroidLng,
+    bh,saveOk,screenshotsSaved,
     date:now.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}),
     time:now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
     nigeria:isNigeria(ST.centroidLat,ST.centroidLng)
   };
 
-  // Now build the report HTML — ST.assessment is fully populated
-  const reportHtml = buildReportHtml(ST.assessment);
-  let reportUrl = '';
+  const reportHtml=buildReportHtml(ST.assessment);
 
   try {
-    await fetch(SAVE_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: {'Content-Type':'application/x-www-form-urlencoded'},
-      body: new URLSearchParams({
-        action:        'saveReport',
-        'Report ID':   reportId,
-        'Client Phone':ST.activeClient.Phone||'',
-        'Client Name': ST.activeClient['Full Name']||'',
-        html:          reportHtml
-      }).toString()
-    });
+    await fetch(SAVE_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({action:'saveReport','Report ID':reportId,'Client Phone':ST.activeClient.Phone||'','Client Name':ST.activeClient['Full Name']||'',html:reportHtml}).toString()});
     setProgress(99,'Report stored ✓');
-  } catch(e) {
-    console.warn('Report Drive save failed:',e);
-  }
+  } catch(e){console.warn('Report Drive save failed:',e);}
 
   setProgress(100,'Done!');
   await new Promise(r=>setTimeout(r,300));
   modal.classList.remove('show');
 
-  // Show "View Report" button
   document.getElementById('btn-view-report').style.display='';
 
-  // Write report into the already-open window
   reportWin.document.open();
   reportWin.document.write(reportHtml);
   reportWin.document.close();
   reportWin.focus();
 
-  const saveMsg = saveOk
-    ? (screenshotsSaved>0 ? 'Assessment + '+screenshotsSaved+' images saved · ' : 'Assessment saved · ')
-    : 'Save failed — report still generated · ';
+  const saveMsg=saveOk?(screenshotsSaved>0?'Assessment + '+screenshotsSaved+' images saved · ':'Assessment saved · '):'Save failed — report still generated · ';
   toast('✓ '+saveMsg+reportId);
+  // Auto-send report to client + admins if client has paid
+  autoSendIfPaid(ST.assessment, ST.activeClient);
 }
 
 // ══════════════════════════════════════════════
 // REPORT GENERATOR
 // ══════════════════════════════════════════════
-// Build report HTML string — pure function, no side effects
-function buildReportHtml(a){
-  return _buildReportHtmlInternal(a);
-}
+function buildReportHtml(a){return _buildReportHtmlInternal(a);}
 
-// View cached report — no re-save, no re-compute
 function viewReport(){
-  if(!ST.assessment){ toast('No report generated yet — click "Save & Report" first.'); return; }
-  const rw = window.open('','_blank');
-  if(!rw){ toast('⚠ Popup blocked — allow popups and try again.'); return; }
-  generateReport(ST.assessment, rw);
+  if(!ST.assessment){toast('No report generated yet — click "Save & Report" first.');return;}
+  const rw=window.open('','_blank');
+  if(!rw){toast('⚠ Popup blocked — allow popups and try again.');return;}
+  generateReport(ST.assessment,rw);
 }
 
-function generateReport(a, targetWin){
-  const html = _buildReportHtmlInternal(a);
+function generateReport(a,targetWin){
+  const html=_buildReportHtmlInternal(a);
   targetWin.document.open();
   targetWin.document.write(html);
   targetWin.document.close();
@@ -1827,7 +1796,6 @@ function _buildReportHtmlInternal(a){
   const worstMonthIdx=a.psh.indexOf(worstPsh);
   const usableArea=+(ST.roofAreaM2*0.74).toFixed(1);
 
-  // Build shading matrix colour cells
   function shadeCell(v){
     if(v===0)return'background:#0d1f38;color:#5a9abf';
     if(v<20)return'background:#1a3a5c;color:#6ab0d4';
@@ -1851,7 +1819,6 @@ function _buildReportHtmlInternal(a){
   const maxPsh=Math.max(...a.psh);
   const hourLabels=['05','06','07','08','09','10','11','12','13','14','15','16','17','18','19','20','21','22','23'];
 
-  // Finding HTML
   const findingHTML=a.findings.map(f=>`
     <div style="display:flex;gap:12px;padding:13px 16px;border-radius:8px;margin-bottom:9px;border:1px solid;
       ${f.type==='positive'?'background:#e8f5ee;border-color:#a7f3d0':f.type==='critical'?'background:#fdecea;border-color:#fca5a5':'background:#fffbeb;border-color:#fde68a'}">
@@ -1862,14 +1829,12 @@ function _buildReportHtmlInternal(a){
       </div>
     </div>`).join('');
 
-  // Recommendation HTML
   const recHTML=a.recs.map(r=>`
     <div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start">
       <div style="width:20px;height:20px;border-radius:50%;background:#E8880A;color:#000;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">${r.num}</div>
       <div style="font-size:.82rem;color:rgba(255,255,255,0.7);line-height:1.55">${r.text}</div>
     </div>`).join('');
 
-  // Key moment screenshot panels
   const momentLabels=[
     `${MONTHS_FULL[a.keyMoments[0].month]} · ${a.keyMoments[0].hour}:00 · ${a.keyMoments[0].season} — Best sun`,
     `${MONTHS_FULL[a.keyMoments[1].month]} · ${a.keyMoments[1].hour}:00 · ${a.keyMoments[1].season} — Worst case`,
@@ -1937,7 +1902,6 @@ function _buildReportHtmlInternal(a){
       </div>
     </div>`;
 
-  // Matrix table
   const matrixRows=a.matrix.map((row,mi)=>`
     <tr>
       <td style="font-size:9px;font-weight:600;color:#475569;background:#F7F9FC;padding:4px 8px;text-align:right;border:1px solid #E2E8F0;white-space:nowrap">${MONTHS[mi]}</td>
@@ -1945,7 +1909,6 @@ function _buildReportHtmlInternal(a){
       <td style="font-size:9px;font-weight:700;color:#0D9488;background:#F7F9FC;padding:4px 6px;text-align:center;border:1px solid #E2E8F0">${a.psh[mi]}</td>
     </tr>`).join('');
 
-  // PSH bar chart SVG
   const barW=38,barGap=4,chartW=(barW+barGap)*12,chartH=90;
   const pshBars=a.psh.map((v,i)=>{
     const barH=Math.max(4,Math.round(v/maxPsh*chartH*0.88));
@@ -1957,6 +1920,9 @@ function _buildReportHtmlInternal(a){
       <text x="${x+barW/2}" y="${chartH+11}" text-anchor="middle" font-size="8" fill="#8896a5" font-family="sans-serif">${MONTHS[i]}</text>
     </g>`;
   }).join('');
+
+  // Paid status for report cover
+  const isPaid = clientHasPaid(c);
 
   const html=`<!DOCTYPE html>
 <html lang="en">
@@ -2005,17 +1971,14 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:#E8ECF0;color:#0D1117
   body{background:#fff!important}
   .page-wrap{box-shadow:none!important}
   img{page-break-inside:avoid}
-  /* Force all background colours to print */
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
 }
-/* Also apply outside @media so it's always set */
 *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 </style>
 </head>
 <body>
 <div class="page-wrap">
 
-<!-- COVER -->
 <div class="cover">
 <div class="stripe"></div>
 <div class="cover-in">
@@ -2024,7 +1987,10 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:#E8ECF0;color:#0D1117
       <div class="brand-mark">☀</div>
       <div><div class="brand-name">Sun<span>Sim</span> Dev</div><div class="brand-sub">Solar Site Assessment Platform</div></div>
     </div>
-    <div class="rep-id">${a.reportId}</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      ${isPaid?`<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(239,68,68,0.22);border:1px solid rgba(239,68,68,0.5);color:#EF4444;border-radius:50px;font-size:9px;font-weight:700;padding:3px 10px;letter-spacing:.04em">✓ PAID</span>`:''}
+      <div class="rep-id">${a.reportId}</div>
+    </div>
   </div>
   <div class="cover-tag">Solar Site Assessment Report</div>
   <div class="cover-title">Site Analysis &amp;<br><em>Solar Feasibility</em><br>Assessment</div>
@@ -2037,9 +2003,9 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:#E8ECF0;color:#0D1117
   </div>
   <div class="cover-client-row">
     <div class="cover-client-info">
-      <h3>${esc(c['Full Name']||'')}</h3>
+      <h3>${esc(c['Full Name']||'')} ${isPaid?'<span style="font-size:9px;background:rgba(239,68,68,0.22);border:1px solid rgba(239,68,68,0.45);color:#EF4444;border-radius:50px;padding:1px 8px;font-weight:700;vertical-align:middle">✓ Paid</span>':''}</h3>
       <p>${esc(c.Address||'')} · ${esc(c.Phone||'')}${c.Email?' · '+esc(c.Email):''}<br>
-      ${esc(c['Property Type']||'')} · ${esc(c['Meter Type']||'')} · Band ${esc(c['Distribution Band']||'').replace('band-','').toUpperCase()} · Goal: ${c['Coverage Level']||'—'}% coverage</p>
+      ${esc(c['Property Type']||'')} · ${esc(c['Meter Type']||'')} · Band ${esc((c['Distribution Band']||'').replace('band-','').toUpperCase())} · Goal: ${c['Coverage Level']||'—'}% coverage</p>
     </div>
     <div class="cover-date">
       <strong style="color:rgba(255,255,255,0.6)">${a.date} · ${a.time}</strong><br>
@@ -2050,13 +2016,12 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:#E8ECF0;color:#0D1117
 </div>
 </div>
 
-<!-- SECTION 1: CLIENT DETAILS -->
 <div class="section">
 <div class="sec-label">Section 01</div>
 <div class="sec-title">Site Overview & Client Details</div>
 <div class="save-badge">${a.saveOk?'✓ Assessment data saved to Google Sheets registry':'⚠ Registry save failed — data stored in browser only'}</div>
 <div class="info-grid">
-  <div class="info-card"><div class="ic-lbl">Client</div><div class="ic-val">${esc(c['Full Name']||'')}</div><div class="ic-sub">${esc(c.Email||'')}</div></div>
+  <div class="info-card"><div class="ic-lbl">Client</div><div class="ic-val">${esc(c['Full Name']||'')} ${isPaid?'<span style="font-size:8px;background:#fdecea;color:#c0392b;border-radius:50px;padding:1px 6px;font-weight:700;border:1px solid #fca5a5">✓ Paid</span>':''}</div><div class="ic-sub">${esc(c.Email||'')}</div></div>
   <div class="info-card"><div class="ic-lbl">Phone</div><div class="ic-val">${esc(c.Phone||'')}</div><div class="ic-sub">Primary contact</div></div>
   <div class="info-card"><div class="ic-lbl">Location</div><div class="ic-val">${esc(c.State||'')}</div><div class="ic-sub">${a.lat.toFixed(4)}°${a.lat>=0?'N':'S'}, ${a.lng.toFixed(4)}°${a.lng>=0?'E':'W'}</div></div>
   <div class="info-card"><div class="ic-lbl">Property</div><div class="ic-val">${esc(c['Property Type']||'')}</div><div class="ic-sub">${esc(c.Occupants||'—')} occupants</div></div>
@@ -2066,94 +2031,40 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:#E8ECF0;color:#0D1117
   <div class="info-card"><div class="ic-lbl">Roof Area</div><div class="ic-val">${ST.roofAreaM2.toFixed(1)} m²</div><div class="ic-sub">From drawn polygon · ${usableArea} m² usable</div></div>
 </div>
 
-<!-- SIDE-BY-SIDE MAP VIEW -->
 <div style="margin-bottom:8px">
   <div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#8896a5;margin-bottom:8px;display:flex;align-items:center;gap:6px">
     <span style="width:3px;height:12px;border-radius:2px;background:#E8880A;display:inline-block"></span>
     Site mapping — Satellite imagery (Esri) alongside simulation overlay · ${MONTHS[a.keyMoments[0].month]} noon best case
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-    <!-- intentionally removed — see stacked layout below -->
-  </div>
-  <!-- STACKED LAYOUT: satellite on top, simulation below — full width for better readability -->
   <div style="display:flex;flex-direction:column;gap:10px">
-
-    <!-- TOP: Real Esri satellite tile — landscape, full width -->
     <div style="border-radius:9px;overflow:hidden;border:1px solid #E2E8F0">
       <div style="background:#2c3e50;padding:5px 12px;font-size:9px;font-weight:600;color:rgba(255,255,255,0.5);letter-spacing:.05em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center">
         <span>🛰 Esri World Imagery · Satellite · Zoom 19</span>
         <span style="font-family:monospace">${a.lat.toFixed(5)}°${a.lat>=0?'N':'S'} ${a.lng.toFixed(5)}°${a.lng>=0?'E':'W'}</span>
       </div>
-      <!-- Precise Esri tile stitching: 5×2 grid centred pixel-accurately on the client coordinate -->
       ${(()=>{
-        const zoom = 19;
-        const lat  = a.lat, lng = a.lng;
-        const n    = Math.pow(2, zoom);
-        const latRad = lat * Math.PI / 180;
-
-        // Exact world pixel position of the target coordinate at this zoom
-        const worldPxX = (lng + 180) / 360 * n * 256;
-        const worldPxY = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n * 256;
-
-        // We want the pin to appear at 40% from left, 50% from top of the image
-        // so there's more landscape to the right (east, where shadows often fall)
-        const tileW = 256, tileH = 256;
-        const cols  = 5, rows = 2;
-        const totalW = cols * tileW;   // 1280px
-        const totalH = rows * tileH;   // 512px
-        const pinTargetX = Math.round(totalW * 0.40); // pin 40% from left
-        const pinTargetY = Math.round(totalH * 0.55); // pin 55% from top
-
-        // Top-left world pixel of our tile grid
-        const gridOriginX = worldPxX - pinTargetX;
-        const gridOriginY = worldPxY - pinTargetY;
-
-        // First tile indices
-        const firstTileX = Math.floor(gridOriginX / tileW);
-        const firstTileY = Math.floor(gridOriginY / tileH);
-
-        // Pixel offset of grid origin within the first tile
-        const offsetX = gridOriginX - firstTileX * tileW;
-        const offsetY = gridOriginY - firstTileY * tileH;
-
-        // We need one extra column/row to cover the offset
-        const tilesWide = cols + 1;
-        const tilesTall = rows + 1;
-
-        let imgs = '';
-        for(let r = 0; r < tilesTall; r++){
-          for(let c = 0; c < tilesWide; c++){
-            const tx = firstTileX + c;
-            const ty = firstTileY + r;
-            const left = Math.round(c * tileW - offsetX);
-            const top  = Math.round(r * tileH - offsetY);
-            const url  = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${ty}/${tx}`;
-            imgs += `<img src="${url}" style="position:absolute;left:${left}px;top:${top}px;width:${tileW}px;height:${tileH}px;display:block;image-rendering:crisp-edges" onerror="this.style.opacity=0">`;
-          }
-        }
-
-        // Pin at exact pixel-accurate position
-        const pinLeft = pinTargetX - 10; // centre the 20px-wide pin SVG
-        const pinTop  = pinTargetY - 28; // tip of pin at exact coord
-        imgs += `<div style="position:absolute;left:${pinLeft}px;top:${pinTop}px;z-index:10;filter:drop-shadow(0 2px 5px rgba(0,0,0,0.8))">
-          <svg width="20" height="28" viewBox="0 0 20 28" xmlns="http://www.w3.org/2000/svg">
-            <path d="M10 0C4.48 0 0 4.48 0 10c0 6.88 10 18 10 18S20 16.88 20 10C20 4.48 15.52 0 10 0z" fill="#0D9488"/>
-            <circle cx="10" cy="10" r="4" fill="white"/>
-          </svg>
-        </div>`;
-
-        // Compass rose — top right corner
-        imgs += `<div style="position:absolute;right:10px;top:10px;z-index:10;width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center">
-          <svg width="36" height="36" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="18" cy="18" r="17" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.5"/>
-            <text x="18" y="8" text-anchor="middle" fill="white" font-size="7" font-weight="bold" font-family="sans-serif">N</text>
-            <text x="18" y="32" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="6" font-family="sans-serif">S</text>
-            <text x="30" y="20" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="6" font-family="sans-serif">E</text>
-            <text x="6" y="20" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="6" font-family="sans-serif">W</text>
-            <line x1="18" y1="12" x2="18" y2="18" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-          </svg>
-        </div>`;
-
+        const zoom=19,lat=a.lat,lng=a.lng;
+        const n=Math.pow(2,zoom);
+        const latRad=lat*Math.PI/180;
+        const worldPxX=(lng+180)/360*n*256;
+        const worldPxY=(1-Math.log(Math.tan(latRad)+1/Math.cos(latRad))/Math.PI)/2*n*256;
+        const tileW=256,tileH=256,cols=5,rows=2;
+        const totalW=cols*tileW,totalH=rows*tileH;
+        const pinTargetX=Math.round(totalW*0.40),pinTargetY=Math.round(totalH*0.55);
+        const gridOriginX=worldPxX-pinTargetX,gridOriginY=worldPxY-pinTargetY;
+        const firstTileX=Math.floor(gridOriginX/tileW),firstTileY=Math.floor(gridOriginY/tileH);
+        const offsetX=gridOriginX-firstTileX*tileW,offsetY=gridOriginY-firstTileY*tileH;
+        const tilesWide=cols+1,tilesTall=rows+1;
+        let imgs='';
+        for(let r=0;r<tilesTall;r++){for(let c=0;c<tilesWide;c++){
+          const tx=firstTileX+c,ty=firstTileY+r;
+          const left=Math.round(c*tileW-offsetX),top=Math.round(r*tileH-offsetY);
+          const url=`https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${ty}/${tx}`;
+          imgs+=`<img src="${url}" style="position:absolute;left:${left}px;top:${top}px;width:${tileW}px;height:${tileH}px;display:block;image-rendering:crisp-edges" onerror="this.style.opacity=0">`;
+        }}
+        const pinLeft=pinTargetX-10,pinTop=pinTargetY-28;
+        imgs+=`<div style="position:absolute;left:${pinLeft}px;top:${pinTop}px;z-index:10;filter:drop-shadow(0 2px 5px rgba(0,0,0,0.8))"><svg width="20" height="28" viewBox="0 0 20 28" xmlns="http://www.w3.org/2000/svg"><path d="M10 0C4.48 0 0 4.48 0 10c0 6.88 10 18 10 18S20 16.88 20 10C20 4.48 15.52 0 10 0z" fill="#0D9488"/><circle cx="10" cy="10" r="4" fill="white"/></svg></div>`;
+        imgs+=`<div style="position:absolute;right:10px;top:10px;z-index:10;width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center"><svg width="36" height="36" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg"><circle cx="18" cy="18" r="17" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.5"/><text x="18" y="8" text-anchor="middle" fill="white" font-size="7" font-weight="bold" font-family="sans-serif">N</text><text x="18" y="32" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="6" font-family="sans-serif">S</text><text x="30" y="20" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="6" font-family="sans-serif">E</text><text x="6" y="20" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="6" font-family="sans-serif">W</text><line x1="18" y1="12" x2="18" y2="18" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg></div>`;
         return `<div style="position:relative;width:${totalW}px;height:${totalH}px;overflow:hidden;max-width:100%;background:#1a2a1a">${imgs}</div>`;
       })()}
       <div style="padding:6px 12px;background:#F7F9FC;font-size:9px;color:#64748B;display:flex;justify-content:space-between;align-items:center">
@@ -2161,8 +2072,6 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:#E8ECF0;color:#0D1117
         <a href="https://www.google.com/maps/@${a.lat},${a.lng},19z?basemap=satellite" target="_blank" style="color:#0D9488;text-decoration:none;font-weight:600;white-space:nowrap">Open in Maps →</a>
       </div>
     </div>
-
-    <!-- BOTTOM: Simulation overlay — full width landscape -->
     <div style="border-radius:9px;overflow:hidden;border:1px solid #E2E8F0">
       <div style="background:#141E2E;padding:5px 12px;font-size:9px;font-weight:600;color:rgba(255,255,255,0.5);letter-spacing:.05em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center">
         <span>☀ Shadow simulation overlay · ${MONTHS[a.keyMoments[0].month]} noon · ${a.keyMoments[0].season}</span>
@@ -2174,7 +2083,6 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:#E8ECF0;color:#0D1117
         <span style="font-weight:700;color:${a.keyMoments[0].pct>80?'#1a7a4a':a.keyMoments[0].pct>55?'#b45309':'#c0392b'}">${a.keyMoments[0].pct}% roof in direct sun</span>
       </div>
     </div>
-
   </div>
   <div style="margin-top:9px;padding:10px 13px;background:#F7F9FC;border:1px solid #E2E8F0;border-radius:6px;font-size:.78rem;color:#475569;line-height:1.55">
     <strong style="color:#0D1117">Reading these together:</strong> The top image is Esri World Imagery satellite view of the exact site —
@@ -2187,7 +2095,6 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:#E8ECF0;color:#0D1117
 </div>
 </div>
 
-<!-- SECTION 2: AERIAL KEY MOMENTS -->
 <div class="section">
 <div class="sec-label">Section 02</div>
 <div class="sec-title">Key Solar Moments — Aerial View</div>
@@ -2195,32 +2102,22 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:#E8ECF0;color:#0D1117
 ${aerialPairs}
 </div>
 
-<!-- SECTION 3: GROUND VIEW -->
 <div class="section">
 <div class="sec-label">Section 03</div>
 <div class="sec-title">Ground View — Shadow Depth & Horizon Analysis</div>
 <p style="font-size:.84rem;color:#475569;margin-bottom:18px">Side elevation showing the sun angle at key moments, shadow length relative to building height, and the visual impact of neighbouring structures on the solar window.${ng?' At '+a.lat.toFixed(1)+'°N latitude, Nigeria\'s sun remains high even in the lowest months — shadow lengths are much shorter than in temperate climates.':''}</p>
 ${groundPairs}
 <div style="margin-top:12px;padding:12px 16px;background:#F7F9FC;border:1px solid #E2E8F0;border-radius:7px;font-size:.8rem;color:#475569">
-  <strong style="color:#0D1117">Note on Nigerian sun angles:</strong> At ${a.lat.toFixed(1)}°N, the December noon sun altitude is 
-  ~${Math.round(sAlt(a.lat,DECL[11],12))}° and the June noon altitude is ~${Math.round(sAlt(a.lat,DECL[5],12))}°. 
-  This means the December shadow is only ${(1/Math.tan(toR(Math.max(1,sAlt(a.lat,DECL[11],12))))).toFixed(2)}× the building height 
-  — significantly shorter than the shadows seen in Europe or North America during winter. 
+  <strong style="color:#0D1117">Note on Nigerian sun angles:</strong> At ${a.lat.toFixed(1)}°N, the December noon sun altitude is ~${Math.round(sAlt(a.lat,DECL[11],12))}° and the June noon altitude is ~${Math.round(sAlt(a.lat,DECL[5],12))}°.
+  This means the December shadow is only ${(1/Math.tan(toR(Math.max(1,sAlt(a.lat,DECL[11],12))))).toFixed(2)}× the building height — significantly shorter than the shadows seen in Europe or North America during winter.
   ${ng?'Reduced output in the dry season (Nov–Mar) is primarily caused by harmattan dust haze reducing direct irradiance, not by low sun angles.':''}
 </div>
 </div>
 
-<!-- SECTION 4: SHADING MATRIX -->
 <div class="section">
 <div class="sec-label">Section 04</div>
 <div class="sec-title">Full-Year Shading Matrix</div>
-<p style="font-size:.84rem;color:#475569;margin-bottom:14px">
-  Percentage of roof area in direct sunlight for each hour of each month. 
-  <strong>Colour key: dark blue = night/horizon · green shades = increasing sunlight · amber/gold = peak sun on roof.</strong> 
-  The final column shows the computed peak sun hours (PSH) for that month. 
-  This matrix is computed from the actual solar geometry for this site latitude (${a.lat.toFixed(2)}°) 
-  and all mapped obstructions — not estimated.
-</p>
+<p style="font-size:.84rem;color:#475569;margin-bottom:14px">Percentage of roof area in direct sunlight for each hour of each month. <strong>Colour key: dark blue = night/horizon · green shades = increasing sunlight · amber/gold = peak sun on roof.</strong> The final column shows the computed peak sun hours (PSH) for that month.</p>
 <div style="overflow-x:auto;margin-bottom:22px">
 <table style="width:100%;border-collapse:collapse;font-size:.7rem;font-family:'JetBrains Mono',monospace">
   <thead>
@@ -2233,7 +2130,6 @@ ${groundPairs}
   <tbody>${matrixRows}</tbody>
 </table>
 </div>
-
 <p style="font-size:.82rem;color:#475569;margin-bottom:10px;font-weight:600">Monthly Peak Sun Hours — computed from shading matrix</p>
 <div style="padding:16px;background:#F7F9FC;border:1px solid #E2E8F0;border-radius:8px;margin-bottom:10px">
 <svg viewBox="0 0 ${chartW+20} ${chartH+24}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;display:block;margin:0 auto">
@@ -2247,14 +2143,12 @@ ${pshBars}
 </div>
 </div>
 <p style="font-size:.78rem;color:#8896A5">
-  ${ng?'Nigeria\'s':'This site\'s'} peak month is <strong style="color:#0D1117">${MONTHS_FULL[peakMonthIdx]} (${peakPsh} PSH/day)</strong> and 
-  lowest month is <strong style="color:#0D1117">${MONTHS_FULL[worstMonthIdx]} (${worstPsh} PSH/day)</strong>. 
-  Annual average: <strong style="color:#0D1117">${avgPsh} peak sun hours/day</strong> — 
+  ${ng?'Nigeria\'s':'This site\'s'} peak month is <strong style="color:#0D1117">${MONTHS_FULL[peakMonthIdx]} (${peakPsh} PSH/day)</strong> and lowest month is <strong style="color:#0D1117">${MONTHS_FULL[worstMonthIdx]} (${worstPsh} PSH/day)</strong>.
+  Annual average: <strong style="color:#0D1117">${avgPsh} peak sun hours/day</strong> —
   ${ng?'an excellent solar resource. Note that reduced output in the dry season is primarily due to harmattan haze, not low sun angles. December noon sun altitude at this latitude is ~'+Math.round(sAlt(a.lat,DECL[11],12))+'°, which is still very productive.':'a strong solar resource for this location.'}
 </p>
 </div>
 
-<!-- SECTION 5: OBSTRUCTIONS -->
 <div class="section">
 <div class="sec-label">Section 05</div>
 <div class="sec-title">Shading Obstructions Analysis</div>
@@ -2292,7 +2186,6 @@ ${ST.mapTrees.length+ST.mapBuildings.length>0?`
 ${findingHTML}
 </div>
 
-<!-- SECTION 6: RECOMMENDATIONS -->
 <div class="section">
 <div class="sec-label">Section 06</div>
 <div class="sec-title">Recommendations & System Sizing Guidance</div>
@@ -2324,7 +2217,6 @@ ${findingHTML}
 </div>
 </div>
 
-<!-- FOOTER -->
 <div style="background:#F7F9FC;padding:24px 48px;display:flex;align-items:center;justify-content:space-between;border-top:2px solid #E2E8F0">
   <div style="display:flex;align-items:center;gap:8px">
     <div style="width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,#E8880A,#0B7B6B);display:flex;align-items:center;justify-content:center;font-size:14px">☀</div>
@@ -2446,258 +2338,149 @@ function drawAll(){
 }
 
 // ══════════════════════════════════════════════
-// REPORT INDEX — fetch from database so client
-// cards show "View Report" for databased clients
+// REPORT INDEX
 // ══════════════════════════════════════════════
 async function fetchReportIndex(){
   try {
-    // Apps Script GET requests need the URL without mode:cors restriction issues
-    // Use no-cors fallback if cors fails
-    let data = null;
+    let data=null;
     try {
-      const url = SAVE_URL + '?action=getReportIndex';
-      const r = await fetch(url, {method:'GET', mode:'cors'});
-      if(r.ok) data = await r.json();
-    } catch(e) {
-      // CORS might fail when running from file:// — try without mode
-      const url = SAVE_URL + '?action=getReportIndex';
-      const r = await fetch(url);
-      if(r.ok) data = await r.json();
+      const url=SAVE_URL+'?action=getReportIndex';
+      const r=await fetch(url,{method:'GET',mode:'cors'});
+      if(r.ok) data=await r.json();
+    } catch(e){
+      const url=SAVE_URL+'?action=getReportIndex';
+      const r=await fetch(url);
+      if(r.ok) data=await r.json();
     }
-    if(!data || !data.success || !data.index) return;
-
-    ST.reportIndex = {};
-    data.index.forEach(row => {
-      const phone = String(row.phone||'').trim();
-      const name  = String(row.clientName||'').trim();
-      if(!phone && !name) return;
-      // Key by phone+name to avoid false matches when multiple clients share a phone number
-      const key = phone + '|' + name;
-      if(!ST.reportIndex[key]) ST.reportIndex[key] = [];
-      ST.reportIndex[key].push({
-        id:   row.reportId,
-        date: row.date,
-        url:  row.reportUrl,
-        name: row.clientName
-      });
-      // Also index by phone alone for backwards compatibility lookups
-      if(!ST.reportIndex['phone:'+phone]) ST.reportIndex['phone:'+phone] = [];
-      ST.reportIndex['phone:'+phone].push({
-        id:row.reportId, date:row.date, url:row.reportUrl, name:row.clientName
-      });
+    if(!data||!data.success||!data.index) return;
+    ST.reportIndex={};
+    data.index.forEach(row=>{
+      const phone=String(row.phone||'').trim();
+      const name=String(row.clientName||'').trim();
+      if(!phone&&!name) return;
+      const key=phone+'|'+name;
+      if(!ST.reportIndex[key]) ST.reportIndex[key]=[];
+      ST.reportIndex[key].push({id:row.reportId,date:row.date,url:row.reportUrl,name:row.clientName});
+      if(!ST.reportIndex['phone:'+phone]) ST.reportIndex['phone:'+phone]=[];
+      ST.reportIndex['phone:'+phone].push({id:row.reportId,date:row.date,url:row.reportUrl,name:row.clientName});
     });
-    Object.keys(ST.reportIndex).forEach(p => {
-      ST.reportIndex[p].sort((a,b) => String(b.date).localeCompare(String(a.date)));
-    });
+    Object.keys(ST.reportIndex).forEach(p=>{ST.reportIndex[p].sort((a,b)=>String(b.date).localeCompare(String(a.date)));});
     renderClients();
-    const reportCount = Object.keys(ST.reportIndex).filter(k=>k.includes('|')).length;
-    setDbStatus('ok', ST.clients.length+' clients · '+reportCount+' with report'+(reportCount!==1?'s':''));
-  } catch(e) {
-    console.warn('Report index fetch failed:', e);
-  }
+    const reportCount=Object.keys(ST.reportIndex).filter(k=>k.includes('|')).length;
+    setDbStatus('ok',ST.clients.length+' clients · '+reportCount+' with report'+(reportCount!==1?'s':''));
+  } catch(e){console.warn('Report index fetch failed:',e);}
 }
 
-// ── Load a saved assessment from database and open its report ──
-// Called when developer clicks "View Report" on a client card
 async function loadAndViewReport(phone, reportId){
-  // Open window FIRST to beat popup blocker
-  const rw = window.open('','_blank');
-  if(!rw){ toast('⚠ Popup blocked — allow popups and try again.'); return; }
-
-  // Show a loading screen in the new window immediately
-  rw.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
-    <title>Loading report…</title>
-    <style>body{margin:0;background:#0B1120;display:flex;align-items:center;justify-content:center;
-    height:100vh;font-family:sans-serif;color:#F1F5F9;flex-direction:column;gap:14px}
-    .sp{width:40px;height:40px;border:3px solid rgba(245,158,11,0.2);border-top-color:#F59E0B;
-    border-radius:50%;animation:spin 0.8s linear infinite}
+  const rw=window.open('','_blank');
+  if(!rw){toast('⚠ Popup blocked — allow popups and try again.');return;}
+  rw.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Loading report…</title>
+    <style>body{margin:0;background:#0B1120;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#F1F5F9;flex-direction:column;gap:14px}
+    .sp{width:40px;height:40px;border:3px solid rgba(245,158,11,0.2);border-top-color:#F59E0B;border-radius:50%;animation:spin 0.8s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}</style></head>
-    <body><div class="sp"></div>
-    <div>Loading saved assessment…</div>
+    <body><div class="sp"></div><div>Loading saved assessment…</div>
     <div style="font-size:.8rem;color:#64748B">Fetching data from Google Sheets</div></body></html>`);
   rw.document.close();
-
   toast('Fetching saved assessment for '+phone+'…');
-
   try {
-    // ── Step 1: Fetch full assessment data ──
-    const assessUrl = SAVE_URL + '?action=getAssessmentsByClient&phone=' + encodeURIComponent(phone);
-    const assessResp = await fetch(assessUrl, {method:'GET', mode:'cors'});
+    const assessUrl=SAVE_URL+'?action=getAssessmentsByClient&phone='+encodeURIComponent(phone);
+    const assessResp=await fetch(assessUrl,{method:'GET',mode:'cors'});
     if(!assessResp.ok) throw new Error('HTTP '+assessResp.status);
-    const assessData = await assessResp.json();
-    if(!assessData.success || !assessData.assessments || !assessData.assessments.length){
-      throw new Error('No assessment found for this client');
-    }
-
-    // Use the specified reportId if given, otherwise latest
-    let assessment = assessData.assessments[0];
-    if(reportId){
-      const found = assessData.assessments.find(a => a['Report ID'] === reportId);
-      if(found) assessment = found;
-    }
-
-    // ── Step 2: Screenshots — re-render from canvas rather than loading Drive URLs ──
-    // Drive URLs require Google login to render as <img> tags cross-origin.
-    // We have all the site data, so we just re-capture each frame fresh.
-    // This is done after ST is set to the saved client context (Step 3 below).
-    // Placeholder for now — filled in after ST swap.
-    const screenshotRows = []; // kept for screenshotsSaved count
-    let screenshots = {};
-
-    // ── Step 3: Reconstruct the assessment object ──
-    let matrix = [], psh = [], keyMoments = [];
-    try { matrix = JSON.parse(assessment['Shading Matrix JSON']||'[]'); } catch(e){ matrix = []; }
-    try { psh    = JSON.parse(assessment['PSH JSON']||'[]'); }           catch(e){ psh = []; }
-
-    const savedLat = parseFloat(assessment['Latitude']) || 9;
-    const savedLng = parseFloat(assessment['Longitude']) || 7.5;
-    const savedBh  = parseFloat(assessment['Building Height M']) || 6;
-    let savedRoofLatLngs = [], savedTrees = [], savedBuildings = [];
-    try { savedRoofLatLngs = JSON.parse(assessment['Roof Polygon JSON']||'[]'); } catch(e){}
-    try { savedTrees       = JSON.parse(assessment['Trees JSON']||'[]'); }        catch(e){}
-    try { savedBuildings   = JSON.parse(assessment['Buildings JSON']||'[]'); }    catch(e){}
-
-    // If matrix is missing or corrupt (e.g. truncated by Sheets), recompute it now
-    // This makes "View Report" fully self-sufficient even if the stored JSON was lost
-    const matrixValid = Array.isArray(matrix) && matrix.length === 12 && Array.isArray(matrix[0]) && matrix[0].length > 0;
+    const assessData=await assessResp.json();
+    if(!assessData.success||!assessData.assessments||!assessData.assessments.length) throw new Error('No assessment found for this client');
+    let assessment=assessData.assessments[0];
+    if(reportId){const found=assessData.assessments.find(a=>a['Report ID']===reportId);if(found)assessment=found;}
+    const screenshotRows=[];let screenshots={};
+    let matrix=[],psh=[],keyMoments=[];
+    try{matrix=JSON.parse(assessment['Shading Matrix JSON']||'[]');}catch(e){matrix=[];}
+    try{psh=JSON.parse(assessment['PSH JSON']||'[]');}catch(e){psh=[];}
+    const savedLat=parseFloat(assessment['Latitude'])||9;
+    const savedLng=parseFloat(assessment['Longitude'])||7.5;
+    const savedBh=parseFloat(assessment['Building Height M'])||6;
+    let savedRoofLatLngs=[],savedTrees=[],savedBuildings=[];
+    try{savedRoofLatLngs=JSON.parse(assessment['Roof Polygon JSON']||'[]');}catch(e){}
+    try{savedTrees=JSON.parse(assessment['Trees JSON']||'[]');}catch(e){}
+    try{savedBuildings=JSON.parse(assessment['Buildings JSON']||'[]');}catch(e){}
+    const matrixValid=Array.isArray(matrix)&&matrix.length===12&&Array.isArray(matrix[0])&&matrix[0].length>0;
     if(!matrixValid){
-      // Temporarily set ST state so computeMatrix can use obstruction positions
-      const _lat = ST.centroidLat, _lng = ST.centroidLng;
-      const _roof = ST.roofLatLngs, _trees = ST.mapTrees, _blds = ST.mapBuildings;
-      ST.centroidLat = savedLat; ST.centroidLng = savedLng;
-      ST.roofLatLngs = savedRoofLatLngs;
-      ST.mapTrees    = savedTrees.map((t,i)=>({lat:t.lat||0,lng:t.lng||0,h:t.h||5,id:t.id||(i+1),leafletLayer:null}));
-      ST.mapBuildings= savedBuildings.map((b,i)=>({latLngs:b.latLngs||[],h:b.h||5,id:b.id||(i+1),name:b.name||('Bldg '+(i+1))}));
-      ST.futureBuildings=[]; ST.futureTrees=[];
-      const recomputed = computeMatrix(savedLat, savedBh);
-      matrix = recomputed.matrix;
-      psh    = computePeakSunHours(matrix, savedLat);
-      // Restore
-      ST.centroidLat=_lat; ST.centroidLng=_lng;
-      ST.roofLatLngs=_roof; ST.mapTrees=_trees; ST.mapBuildings=_blds;
+      const _lat=ST.centroidLat,_lng=ST.centroidLng;
+      const _roof=ST.roofLatLngs,_trees=ST.mapTrees,_blds=ST.mapBuildings;
+      ST.centroidLat=savedLat;ST.centroidLng=savedLng;
+      ST.roofLatLngs=savedRoofLatLngs;
+      ST.mapTrees=savedTrees.map((t,i)=>({lat:t.lat||0,lng:t.lng||0,h:t.h||5,id:t.id||(i+1),leafletLayer:null}));
+      ST.mapBuildings=savedBuildings.map((b,i)=>({latLngs:b.latLngs||[],h:b.h||5,id:b.id||(i+1),name:b.name||('Bldg '+(i+1))}));
+      ST.futureBuildings=[];ST.futureTrees=[];
+      const recomputed=computeMatrix(savedLat,savedBh);
+      matrix=recomputed.matrix;psh=computePeakSunHours(matrix,savedLat);
+      ST.centroidLat=_lat;ST.centroidLng=_lng;ST.roofLatLngs=_roof;ST.mapTrees=_trees;ST.mapBuildings=_blds;
     }
-
-    // Temporarily swap ST state for all computation that reads from ST
-    const origLat  = ST.centroidLat, origLng = ST.centroidLng;
-    const origRoof = ST.roofLatLngs,  origTrees = ST.mapTrees, origBlds = ST.mapBuildings;
-    ST.centroidLat  = savedLat; ST.centroidLng = savedLng;
-    ST.roofLatLngs  = savedRoofLatLngs;
-    ST.mapTrees     = savedTrees.map((t,i)=>({lat:t.lat||0,lng:t.lng||0,h:t.h||5,id:t.id||(i+1),leafletLayer:null}));
-    ST.mapBuildings = savedBuildings.map((b,i)=>({latLngs:b.latLngs||[],h:b.h||5,id:b.id||(i+1),name:b.name||('Bldg '+(i+1))}));
-    ST.futureBuildings=[]; ST.futureTrees=[];
-
-    // Now safely compute derived data — matrix is guaranteed valid here
-    keyMoments = findKeyMoments(matrix, savedLat, savedLng);
-    const findings = analyseObstructions(savedLat, savedLng, matrix);
-
-    const clientProxy = {
-      'Full Name':        assessment['Client Name']||'',
-      'Phone':            assessment['Client Phone']||'',
-      'Email':            assessment['Client Email']||'',
-      'State':            assessment['Client State']||'',
-      'Address':          assessment['Client Address']||'',
-      'Property Type':    assessment['Property Type']||'',
-      'Occupants':        assessment['Occupants']||'',
-      'Meter Type':       assessment['Meter Type']||'',
-      'Distribution Band':assessment['Distribution Band']||'',
-      'Avg Consumption Value': assessment['Monthly Consumption Value']||'',
-      'Avg Consumption Unit':  assessment['Monthly Consumption Unit']||'naira',
-      'Coverage Level':   assessment['Coverage Goal %']||''
-    };
-    const bh       = savedBh;
-    const roofArea = parseFloat(assessment['Roof Area M2']) || 0;
-    const recs     = generateRecommendations(psh, matrix, savedLat, savedLng, roofArea, bh, clientProxy);
-
-    // ── Step 3b: Capture screenshots fresh from canvas ──
-    // ST is now set to saved client context — captureFrame() will render correctly.
-    // We also need sl-bh and sl-lat to return correct values for captureFrame.
-    const origBhSlider  = document.getElementById('sl-bh').value;
-    const origLatSlider = document.getElementById('sl-lat').value;
-    document.getElementById('sl-bh').value  = savedBh;
-    document.getElementById('sl-lat').value = Math.abs(savedLat).toFixed(1);
-
-    // Update the loading screen to show progress
+    const origLat=ST.centroidLat,origLng=ST.centroidLng;
+    const origRoof=ST.roofLatLngs,origTrees=ST.mapTrees,origBlds=ST.mapBuildings;
+    ST.centroidLat=savedLat;ST.centroidLng=savedLng;
+    ST.roofLatLngs=savedRoofLatLngs;
+    ST.mapTrees=savedTrees.map((t,i)=>({lat:t.lat||0,lng:t.lng||0,h:t.h||5,id:t.id||(i+1),leafletLayer:null}));
+    ST.mapBuildings=savedBuildings.map((b,i)=>({latLngs:b.latLngs||[],h:b.h||5,id:b.id||(i+1),name:b.name||('Bldg '+(i+1))}));
+    ST.futureBuildings=[];ST.futureTrees=[];
+    keyMoments=findKeyMoments(matrix,savedLat,savedLng);
+    const findings=analyseObstructions(savedLat,savedLng,matrix);
+    const clientProxy={'Full Name':assessment['Client Name']||'','Phone':assessment['Client Phone']||'','Email':assessment['Client Email']||'','State':assessment['Client State']||'','Address':assessment['Client Address']||'','Property Type':assessment['Property Type']||'','Occupants':assessment['Occupants']||'','Meter Type':assessment['Meter Type']||'','Distribution Band':assessment['Distribution Band']||'','Avg Consumption Value':assessment['Monthly Consumption Value']||'','Avg Consumption Unit':assessment['Monthly Consumption Unit']||'naira','Coverage Level':assessment['Coverage Goal %']||''};
+    const bh=savedBh;
+    const roofArea=parseFloat(assessment['Roof Area M2'])||0;
+    const recs=generateRecommendations(psh,matrix,savedLat,savedLng,roofArea,bh,clientProxy);
+    const origBhSlider=document.getElementById('sl-bh').value;
+    const origLatSlider=document.getElementById('sl-lat').value;
+    document.getElementById('sl-bh').value=savedBh;
+    document.getElementById('sl-lat').value=Math.abs(savedLat).toFixed(1);
     rw.document.open();
     rw.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Building report…</title>
-      <style>body{margin:0;background:#0B1120;display:flex;align-items:center;justify-content:center;
-      height:100vh;font-family:sans-serif;color:#F1F5F9;flex-direction:column;gap:14px}
-      .sp{width:36px;height:36px;border:3px solid rgba(245,158,11,0.2);border-top-color:#F59E0B;
-      border-radius:50%;animation:spin .8s linear infinite}
+      <style>body{margin:0;background:#0B1120;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#F1F5F9;flex-direction:column;gap:14px}
+      .sp{width:36px;height:36px;border:3px solid rgba(245,158,11,0.2);border-top-color:#F59E0B;border-radius:50%;animation:spin .8s linear infinite}
       @keyframes spin{to{transform:rotate(360deg)}}</style></head>
       <body><div class="sp"></div><div>Rendering simulation screenshots…</div>
       <div style="font-size:.78rem;color:#64748B">6 frames · takes a few seconds</div></body></html>`);
     rw.document.close();
-
-    // Render all 6 frames
-    for(let i=0; i<keyMoments.length; i++){
-      const km = keyMoments[i];
-      screenshots['aerial_'+i] = await captureFrame(km.month, km.hour, 'aerial');
-    }
-    screenshots['ground_best']  = await captureFrame(keyMoments[0].month, keyMoments[0].hour, 'ground');
-    screenshots['ground_worst'] = await captureFrame(keyMoments[1].month, keyMoments[1].hour, 'ground');
-
-    // Restore sliders
-    document.getElementById('sl-bh').value  = origBhSlider;
-    document.getElementById('sl-lat').value = origLatSlider;
-
-    // Restore ST
-    ST.centroidLat = origLat; ST.centroidLng = origLng;
-    ST.roofLatLngs = origRoof; ST.mapTrees = origTrees; ST.mapBuildings = origBlds;
-    ST.futureBuildings = []; ST.futureTrees = [];
-
-    // Build the assessment object exactly as runAssessment does
-    const now = new Date(assessment['Assessment Date']||Date.now());
-    const reconstructed = {
-      reportId:  assessment['Report ID'],
-      matrix, psh, keyMoments, findings, recs, screenshots,
-      lat: savedLat, lng: savedLng, bh,
-      saveOk: true, screenshotsSaved: screenshotRows.length,
-      date: assessment['Assessment Date'],
-      time: assessment['Assessment Time'],
-      nigeria: assessment['Is Nigeria']==='Yes'
-    };
-
-    // ── Step 4: Generate report — ST is already set to saved client's context ──
-    const origClient = ST.activeClient;
-    ST.activeClient = clientProxy;
-
-    generateReport(reconstructed, rw);
-
-    // Restore everything
-    ST.activeClient = origClient;
-    ST.centroidLat  = origLat;  ST.centroidLng  = origLng;
-    ST.roofLatLngs  = origRoof; ST.mapTrees     = origTrees; ST.mapBuildings = origBlds;
-    ST.futureBuildings = []; ST.futureTrees = [];
-
+    for(let i=0;i<keyMoments.length;i++){const km=keyMoments[i];screenshots['aerial_'+i]=await captureFrame(km.month,km.hour,'aerial');}
+    screenshots['ground_best']=await captureFrame(keyMoments[0].month,keyMoments[0].hour,'ground');
+    screenshots['ground_worst']=await captureFrame(keyMoments[1].month,keyMoments[1].hour,'ground');
+    document.getElementById('sl-bh').value=origBhSlider;
+    document.getElementById('sl-lat').value=origLatSlider;
+    ST.centroidLat=origLat;ST.centroidLng=origLng;ST.roofLatLngs=origRoof;ST.mapTrees=origTrees;ST.mapBuildings=origBlds;ST.futureBuildings=[];ST.futureTrees=[];
+    const now=new Date(assessment['Assessment Date']||Date.now());
+    const reconstructed={reportId:assessment['Report ID'],matrix,psh,keyMoments,findings,recs,screenshots,lat:savedLat,lng:savedLng,bh,saveOk:true,screenshotsSaved:screenshotRows.length,date:assessment['Assessment Date'],time:assessment['Assessment Time'],nigeria:assessment['Is Nigeria']==='Yes'};
+    const origClient=ST.activeClient;
+    const origRoofAreaLAV=ST.roofAreaM2;
+    ST.activeClient=clientProxy;
+    ST.roofAreaM2=roofArea; // restore correct roof area for report render
+    generateReport(reconstructed,rw);
+    ST.activeClient=origClient;
+    ST.roofAreaM2=origRoofAreaLAV;
+    ST.centroidLat=origLat;ST.centroidLng=origLng;ST.roofLatLngs=origRoof;ST.mapTrees=origTrees;ST.mapBuildings=origBlds;ST.futureBuildings=[];ST.futureTrees=[];
     toast('✓ Report loaded — '+assessment['Report ID']);
-
-  } catch(err) {
-    console.error('loadAndViewReport error:', err);
+  } catch(err){
+    console.error('loadAndViewReport error:',err);
     rw.document.open();
     rw.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Error</title>
-      <style>body{margin:0;background:#0B1120;display:flex;align-items:center;justify-content:center;
-      height:100vh;font-family:sans-serif;color:#F1F5F9;flex-direction:column;gap:12px;padding:40px;text-align:center}
+      <style>body{margin:0;background:#0B1120;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#F1F5F9;flex-direction:column;gap:12px;padding:40px;text-align:center}
       h2{color:#EF4444;margin:0}p{color:#94A3B8;font-size:.9rem;max-width:400px;line-height:1.6}</style></head>
-      <body><h2>⚠ Could not load report</h2>
-      <p>${err.message}</p>
-      <p style="font-size:.8rem;color:#64748B">Check that the Apps Script is deployed and the assessment data is complete in Google Sheets.</p>
-      </body></html>`);
+      <body><h2>⚠ Could not load report</h2><p>${err.message}</p>
+      <p style="font-size:.8rem;color:#64748B">Check that the Apps Script is deployed and the assessment data is complete in Google Sheets.</p></body></html>`);
     rw.document.close();
-    toast('Error loading report: ' + err.message);
+    toast('Error loading report: '+err.message);
   }
 }
+
 let toastT;
-function toast(msg, duration){
+function toast(msg,duration){
   document.getElementById('toast-msg').textContent=msg;
   const t=document.getElementById('toast');t.classList.add('show');
   clearTimeout(toastT);
-  toastT=setTimeout(()=>t.classList.remove('show'), duration||3800);
+  toastT=setTimeout(()=>t.classList.remove('show'),duration||3800);
 }
 window.addEventListener('resize',()=>{resizeCvs();drawAll();});
 updateControls();
 loadClients();
-// Fetch report index from database after clients load so "View Report" buttons appear
-setTimeout(fetchReportIndex, 1200);
+// Fetch paid status and report index in parallel after clients load
+setTimeout(()=>{loadPaidClients();fetchReportIndex();},1200);
 </script>
 </body>
 </html>
